@@ -1,0 +1,2362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Addis Jeans - Quick Bill POS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+    
+    * {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      box-sizing: border-box;
+    }
+    
+    html {
+      height: 100%;
+      height: 100dvh;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #0d0d0f;
+      color: #f3f4f6;
+      height: 100%;
+      height: 100vh;
+      height: 100dvh;
+      min-height: -webkit-fill-available;
+      overflow: hidden;
+    }
+
+    .font-mono-num {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .calc-btn {
+      transition: all 0.08s ease-in-out;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.4);
+    }
+    .calc-btn:active {
+      transform: scale(0.94);
+      filter: brightness(1.2);
+    }
+
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #374151;
+      border-radius: 4px;
+    }
+
+    .receipt-paper {
+      font-family: 'JetBrains Mono', Courier, monospace;
+      background: #ffffff;
+      color: #000000;
+      transition: width 0.2s ease;
+    }
+  </style>
+</head>
+<body class="flex flex-col h-full h-[100dvh] max-w-md mx-auto relative border-x border-gray-800 shadow-2xl">
+
+  <!-- ================= TOP APP BAR ================= -->
+  <header class="bg-[#18181b] px-3 py-2 flex items-center justify-between border-b border-gray-800 shrink-0">
+    <div class="flex items-center space-x-2">
+      <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center font-black text-black text-base shadow">
+        QB
+      </div>
+      <div>
+        <h1 class="text-sm font-bold tracking-tight text-white leading-none flex items-center gap-1.5">
+          Quick Bill
+          <span id="activeEditBadge" class="hidden text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/40 px-1.5 py-0.5 rounded font-medium">EDITING</span>
+        </h1>
+        <p class="text-[11px] text-gray-400 font-medium" id="headerStoreName">Addis Jeans</p>
+      </div>
+    </div>
+
+    <!-- Right Actions -->
+    <div class="flex items-center space-x-1.5">
+      <!-- Receipt Customizer Direct Button -->
+      <button onclick="openReceiptCustomizerModal()" class="w-8 h-8 rounded-full bg-[#27272a] hover:bg-[#3f3f46] text-purple-400 flex items-center justify-center text-xs transition border border-gray-700" title="Customize Receipt Layout">
+        <i class="fa-solid fa-sliders"></i>
+      </button>
+
+      <!-- Bluetooth Status/Connect Modal Button -->
+      <button id="topBtBtn" onclick="openBtModal()" class="w-8 h-8 rounded-full bg-[#27272a] hover:bg-[#3f3f46] text-blue-400 flex items-center justify-center text-xs transition border border-gray-700" title="Bluetooth 80mm Printer">
+        <i class="fa-brands fa-bluetooth-b" id="topBtIcon"></i>
+      </button>
+
+      <!-- Reports -->
+      <button onclick="openReportsModal()" class="px-2.5 py-1.5 rounded-full bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 flex items-center space-x-1 text-xs font-semibold transition">
+        <i class="fa-solid fa-clock-rotate-left text-[11px]"></i>
+        <span>Report</span>
+      </button>
+
+      <!-- Items / Inventory -->
+      <button onclick="openInventoryModal()" class="px-2.5 py-1.5 rounded-full bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 flex items-center space-x-1 text-xs font-semibold transition">
+        <i class="fa-solid fa-box text-[11px]"></i>
+        <span>Items</span>
+      </button>
+
+      <!-- Settings -->
+      <button onclick="openSettingsModal()" class="w-8 h-8 rounded-full bg-[#27272a] hover:bg-[#3f3f46] text-gray-300 flex items-center justify-center text-xs transition border border-gray-700" title="Settings">
+        <i class="fa-solid fa-gear"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= SUBHEADER / BILL METADATA ================= -->
+  <div class="bg-[#121215] px-3 py-1.5 border-b border-gray-800 flex items-center space-x-2 shrink-0 text-xs">
+    <div class="bg-amber-500 text-black font-extrabold px-2 py-0.5 rounded text-[11px] shrink-0 font-mono-num" id="displayBillNum">
+      Bill #01
+    </div>
+    
+    <input type="text" id="custNameInput" placeholder="Customer Name (Optional)" 
+           class="flex-1 bg-[#1f1f23] text-gray-200 placeholder-gray-500 px-2.5 py-1 rounded border border-gray-700/60 text-xs focus:outline-none focus:border-amber-500 transition">
+
+    <!-- Payment Mode Dropdown -->
+    <select id="paymentModeSelect" class="bg-[#1f1f23] text-gray-200 px-2 py-1 rounded border border-gray-700/60 text-xs focus:outline-none font-medium">
+      <option value="Cash">Cash</option>
+      <option value="UPI">UPI</option>
+      <option value="Card">Card</option>
+      <option value="Credit">Credit</option>
+    </select>
+  </div>
+
+  <!-- ================= TABLE HEADER ================= -->
+  <div class="bg-[#f59e0b] text-black font-bold text-[11px] grid grid-cols-12 px-3 py-1 shrink-0 uppercase tracking-wider">
+    <span class="col-span-1 text-center">SR</span>
+    <span class="col-span-5">DETAILS</span>
+    <span class="col-span-2 text-center">QTY</span>
+    <span class="col-span-2 text-right">RATE</span>
+    <span class="col-span-2 text-right">TOTAL</span>
+  </div>
+
+  <!-- ================= SCROLLABLE BILL ITEMS LIST ================= -->
+  <div id="billItemsContainer" class="flex-1 overflow-y-auto px-2 py-1 space-y-1 bg-[#0f0f12]">
+    <!-- Empty State -->
+    <div id="emptyBillState" class="h-full flex flex-col items-center justify-center text-center p-4">
+      <div class="w-12 h-12 rounded-full bg-gray-800/80 flex items-center justify-center text-gray-500 mb-2">
+        <i class="fa-solid fa-basket-shopping text-xl"></i>
+      </div>
+      <p class="text-sm font-semibold text-gray-300">No items added yet</p>
+      <p class="text-xs text-gray-500 mb-3">Type Qty & Enter, then Rate & Enter!</p>
+
+      <!-- Preset item quick chips -->
+      <div class="w-full max-w-xs space-y-1.5" id="presetPillsContainer"></div>
+    </div>
+
+    <!-- Active Line Items List -->
+    <div id="activeItemsList" class="space-y-1"></div>
+  </div>
+
+  <!-- Rate Auto-Suggest Strip -->
+  <div id="rateSuggestBar" class="hidden bg-[#1c1c21] border-t border-amber-500/30 px-3 py-1.5 flex items-center gap-1.5 overflow-x-auto shrink-0 text-xs">
+    <span class="text-[10px] uppercase font-bold text-amber-400 shrink-0"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Matched:</span>
+    <div id="rateSuggestPills" class="flex items-center gap-1.5"></div>
+  </div>
+
+  <!-- ================= SUMMARY BAR ================= -->
+  <div class="bg-[#27272a] px-3 py-1.5 flex items-center justify-between text-xs font-bold shrink-0 border-t border-gray-700">
+    <div class="text-gray-300 font-mono-num">
+      QTY: <span id="summaryTotalQty" class="text-white">0</span>
+    </div>
+    <div class="text-white font-mono-num text-sm">
+      GRAND TOTAL: <span class="text-amber-400 text-base" id="summaryGrandTotal">0</span>
+    </div>
+  </div>
+
+  <!-- ================= INPUT & ACTION STRIP ================= -->
+  <div class="bg-[#18181b] p-2 border-t border-gray-800 flex items-center gap-2 shrink-0">
+    <!-- Active Qty Box -->
+    <div id="qtyBoxWrapper" onclick="setActiveField('qty')"
+         class="flex-1 bg-[#121215] border-2 border-amber-500 rounded-lg p-1.5 text-center cursor-pointer transition">
+      <span class="text-[9px] uppercase tracking-wider block text-gray-400 font-semibold leading-none">Qty</span>
+      <span id="activeQtyVal" class="text-base font-extrabold text-white font-mono-num leading-tight">1</span>
+    </div>
+
+    <!-- Rate Box -->
+    <div id="rateBoxWrapper" onclick="setActiveField('rate')"
+         class="flex-1 bg-[#121215] border border-gray-700 rounded-lg p-1.5 text-center cursor-pointer transition">
+      <span class="text-[9px] uppercase tracking-wider block text-gray-400 font-semibold leading-none">Rate</span>
+      <span id="activeRateVal" class="text-base font-extrabold text-gray-400 font-mono-num leading-tight">0</span>
+    </div>
+
+    <!-- ONE-TOUCH BLUETOOTH PRINT BUTTON (AUTO-CUT) -->
+    <button onclick="handleQuickBtPrint()" class="px-3.5 h-10 rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center space-x-1.5 text-xs font-bold calc-btn shadow" title="One-Touch Bluetooth Print (Auto-Cut)">
+      <i class="fa-brands fa-bluetooth-b text-sm" id="actionBtIcon"></i>
+      <span>Print</span>
+    </button>
+
+    <!-- Receipt Preview Button -->
+    <button onclick="openReceiptModal()" class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/40 hover:bg-purple-500/30 flex items-center justify-center text-xs calc-btn" title="Preview Bill">
+      <i class="fa-solid fa-file-invoice text-sm"></i>
+    </button>
+
+    <!-- Share Bill Button -->
+    <button onclick="shareCurrentBill()" class="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/40 hover:bg-indigo-600/30 flex items-center justify-center text-xs calc-btn" title="Share Bill">
+      <i class="fa-solid fa-share-nodes text-sm"></i>
+    </button>
+  </div>
+
+  <!-- ================= CALCULATOR KEYBOARD ================= -->
+  <div class="bg-[#121214] p-2.5 border-t border-gray-800 shrink-0 keypad-container" style="padding-bottom: max(1.5rem, calc(0.75rem + env(safe-area-inset-bottom, 22px)));">
+    <div class="grid grid-cols-4 gap-2">
+      <!-- Row 1: 7, 8, 9, SAVE -->
+      <button onclick="tapKey('7')" class="h-[50px] sm:h-14 rounded-2xl bg-[#27272a] text-white font-black text-2xl calc-btn flex items-center justify-center">7</button>
+      <button onclick="tapKey('8')" class="h-[50px] sm:h-14 rounded-2xl bg-[#27272a] text-white font-black text-2xl calc-btn flex items-center justify-center">8</button>
+      <button onclick="tapKey('9')" class="h-[50px] sm:h-14 rounded-2xl bg-[#27272a] text-white font-black text-2xl calc-btn flex items-center justify-center">9</button>
+      <button id="keypadSaveBtn" onclick="handleSaveBillClick()" class="h-[50px] sm:h-14 rounded-2xl bg-amber-500 hover:bg-amber-400 text-black font-black text-xs uppercase tracking-wider calc-btn flex flex-col items-center justify-center leading-tight shadow">
+        <i class="fa-solid fa-circle-check text-base mb-0.5"></i>
+        <span>SAVE</span>
+      </button>
+
+      <!-- Row 2: 4, 5, 6, ENTER -->
+      <button onclick="tapKey('4')" class="h-[50px] sm:h-14 rounded-2xl bg-[#27272a] text-white font-black text-2xl calc-btn flex items-center justify-center">4</button>
+      <button onclick="tapKey('5')" class="h-[50px] sm:h-14 rounded-2xl bg-[#27272a] text-white font-black text-2xl calc-btn flex items-center justify-center">5</button>
+      <button onclick="tapKey('6')" class="h-[50px] sm:h-14 rounded-2xl bg-[#27272a] text-white font-black text-2xl calc-btn flex items-center justify-center">6</button>
+      <button onclick="tapEnterKey()" class="row-span-2 h-full min-h-[104px] rounded-2xl bg-gradient-to-b from-amber-500 to-orange-600 text-black font-black text-sm uppercase tracking-wider calc-btn flex flex-col items-center justify-center shadow-lg">
+        <span class="text-xs tracking-wider font-extrabold">ENTER</span>
+        <i class="fa-solid fa-arrow-turn-down fa-rotate-90 text-lg mt-2"></i>
+      </button>
+
+      <!-- Row 3: 1, 2, 3 -->
+      <button onclick="tapKey('1')" class="h-[50px] sm:h-14 rounded-2xl bg-[#27272a] text-white font-black text-2xl calc-btn flex items-center justify-center">1</button>
+      <button onclick="tapKey('2')" class="h-[50px] sm:h-14 rounded-2xl bg-[#27272a] text-white font-black text-2xl calc-btn flex items-center justify-center">2</button>
+      <button onclick="tapKey('3')" class="h-[50px] sm:h-14 rounded-2xl bg-[#27272a] text-white font-black text-2xl calc-btn flex items-center justify-center">3</button>
+
+      <!-- Row 4: 0, ., Backspace, CLEAR -->
+      <button onclick="tapKey('0')" class="h-[50px] sm:h-14 rounded-2xl bg-[#27272a] text-white font-black text-2xl calc-btn flex items-center justify-center">0</button>
+      <button onclick="tapKey('.')" class="h-[50px] sm:h-14 rounded-2xl bg-[#27272a] text-white font-black text-xl calc-btn flex items-center justify-center">.</button>
+      <button onclick="tapBackspace()" class="h-[50px] sm:h-14 rounded-2xl bg-[#27272a] text-gray-300 font-bold text-xl calc-btn flex items-center justify-center">
+        <i class="fa-solid fa-delete-left"></i>
+      </button>
+      <button onclick="tapClear()" class="h-[50px] sm:h-14 rounded-2xl bg-red-600/90 hover:bg-red-500 text-white font-black text-xs uppercase calc-btn flex flex-col items-center justify-center leading-tight">
+        <span class="text-base font-black">C</span>
+        <span class="text-[9px] tracking-wider">CLEAR</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= CANCEL EDIT BANNER ================= -->
+  <div id="cancelEditBanner" class="hidden absolute top-12 left-0 right-0 bg-amber-600/95 text-black px-4 py-1.5 flex items-center justify-between z-30 shadow-lg text-xs font-bold">
+    <span><i class="fa-solid fa-pen mr-1.5"></i>Editing Saved Bill <span id="editingBillNumRef"></span></span>
+    <button onclick="cancelEditingBill()" class="bg-black text-amber-400 px-2 py-0.5 rounded text-[11px] font-semibold hover:bg-gray-900">
+      Cancel
+    </button>
+  </div>
+
+
+  <!-- ================= MODALS ================= -->
+
+  <!-- 1. RECEIPT PREVIEW MODAL (WITH RECHECK FEATURE) -->
+  <div id="receiptModal" class="hidden fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-3">
+    <div class="bg-[#18181b] border border-gray-700 w-full max-w-sm rounded-2xl overflow-hidden flex flex-col max-h-[92vh] shadow-2xl">
+      <!-- Modal Header -->
+      <div class="px-4 py-3 bg-[#242427] border-b border-gray-700 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+          <h3 class="text-sm font-bold text-white" id="rcptModalHeaderTitle">Receipt Preview</h3>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="openReceiptCustomizerModal()" class="text-xs px-2 py-1 rounded bg-purple-600/20 text-purple-400 border border-purple-500/40 hover:bg-purple-600/30 font-semibold flex items-center gap-1">
+            <i class="fa-solid fa-sliders text-[10px]"></i>
+            <span>Customize</span>
+          </button>
+          <button onclick="closeReceiptModal()" class="text-gray-400 hover:text-white p-1">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- RECHECK MODE CONTROL BAR -->
+      <div class="px-3.5 py-2 bg-[#202026] border-b border-gray-700/80 flex items-center justify-between text-xs">
+        <button id="toggleRecheckBtn" onclick="toggleRecheckMode()" class="px-2.5 py-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/40 font-bold flex items-center gap-1.5 hover:bg-amber-500/30 transition">
+          <i class="fa-solid fa-list-check text-xs"></i>
+          <span id="recheckBtnText">Start Recheck</span>
+        </button>
+        <span id="recheckStatusBadge" class="text-[11px] text-gray-400 font-mono-num hidden">
+          Checked: <b id="recheckCount" class="text-emerald-400">0</b>/<span id="recheckTotalCount">0</span>
+        </span>
+      </div>
+
+      <!-- RECHECK VERIFICATION LIST PANEL (Shows in recheck mode) -->
+      <div id="recheckContainer" class="hidden p-3 bg-[#141417] border-b border-gray-700 max-h-72 overflow-y-auto space-y-2">
+        <p class="text-[11px] text-gray-400 leading-snug">
+          <i class="fa-solid fa-circle-info mr-1 text-amber-400"></i>
+          Tick OK entries to move them to the bottom. Edit Rate or Qty inline to fix mismatches.
+        </p>
+        <div id="recheckItemsList" class="space-y-1.5 text-xs"></div>
+      </div>
+
+      <!-- Receipt Paper Container -->
+      <div class="p-4 overflow-y-auto flex-1 flex justify-center bg-[#0d0d0f]">
+        <div id="thermalReceiptPaper" class="receipt-paper w-[310px] p-4 text-[12px] leading-relaxed shadow-lg border border-gray-300">
+          <div class="text-center mb-1.5">
+            <h2 class="text-base font-black tracking-wider uppercase" id="rcptStoreName">ADDIS JEANS</h2>
+            <p class="text-[10px] font-semibold text-gray-800 italic hidden" id="rcptTagline"></p>
+            <p class="text-[10px] font-medium text-gray-700" id="rcptAddress">Gandhi Nagar</p>
+            <p class="text-[10px] font-medium text-gray-700" id="rcptPhoneWrapper">Ph: <span id="rcptPhone">9811348044</span></p>
+            <p class="text-[10px] font-semibold text-gray-800 hidden font-mono-num" id="rcptGstinWrapper">GSTIN: <span id="rcptGstin"></span></p>
+          </div>
+
+          <div class="border-b border-dashed border-gray-500 my-1.5" id="rcptDivider1"></div>
+
+          <!-- Bill Meta -->
+          <div class="flex justify-between text-[11px] font-bold" id="rcptMetaRow">
+            <span id="rcptBillNum">Bill #01</span>
+            <span id="rcptDateTime">31/10/2026 05:40 PM</span>
+          </div>
+          <div id="rcptCustRow" class="text-[11px] text-gray-800"></div>
+
+          <div class="border-b border-dashed border-gray-500 my-1.5"></div>
+
+          <!-- Dynamic Items Table Header -->
+          <div id="rcptTableHeaderRow" class="grid grid-cols-12 font-bold text-[11px] mb-1"></div>
+          <div class="border-b border-dashed border-gray-400 mb-1.5"></div>
+
+          <div id="rcptItemsTable" class="space-y-1 text-[11px]"></div>
+
+          <div class="border-b border-dashed border-gray-500 my-2"></div>
+
+          <!-- Total Items & Qty Row -->
+          <div class="flex justify-between font-bold text-[11px]" id="rcptQtySubtotalRow">
+            <span id="rcptTotalItemsQtyLabel">Total Items: <span id="rcptTotalItems">0</span> (Qty: <span id="rcptTotalQty">0</span>)</span>
+            <span id="rcptSubTotal">0</span>
+          </div>
+
+          <div class="border-b border-dashed border-gray-600 my-2" id="rcptDividerGrandTotal"></div>
+
+          <!-- Grand Total & Payment Mode -->
+          <div class="text-center py-1">
+            <div class="text-sm font-black tracking-wide">
+              GRAND TOTAL : <span id="rcptGrandTotal">0</span>
+            </div>
+            <div class="text-[10px] text-gray-600 mt-0.5" id="rcptPaymentModeWrapper">
+              Payment Mode: <span id="rcptPaymentMode">Cash</span>
+            </div>
+          </div>
+
+          <!-- Optional UPI QR Code -->
+          <div id="rcptUpiQrContainer" class="hidden text-center my-2 pt-2 border-t border-dashed border-gray-400">
+            <div class="inline-block p-1 bg-white border border-gray-300 rounded shadow-sm">
+              <img id="rcptUpiQrImg" src="" alt="UPI QR" class="w-24 h-24 mx-auto object-contain">
+            </div>
+            <p class="text-[9px] font-bold text-gray-700 mt-1">Scan & Pay via any UPI App</p>
+          </div>
+
+          <!-- Optional Custom Footer Note & Terms -->
+          <div id="rcptFooterSection" class="text-center mt-2 pt-1 border-t border-dashed border-gray-400 hidden">
+            <p class="text-[10px] font-bold text-gray-800" id="rcptFooterNote"></p>
+            <p class="text-[9px] text-gray-600 mt-0.5" id="rcptTermsNote"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons Inside Preview -->
+      <div class="p-3 bg-[#242427] border-t border-gray-700 space-y-2 text-xs font-bold">
+        <!-- 1-Touch Bluetooth Print Button -->
+        <button onclick="handleQuickBtPrint(currentViewingBill)" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center space-x-2 shadow">
+          <i class="fa-brands fa-bluetooth-b text-sm"></i>
+          <span>One-Touch Bluetooth Print (Auto-Cut)</span>
+        </button>
+
+        <div class="grid grid-cols-2 gap-2">
+          <!-- WhatsApp High Quality JPEG Share -->
+          <button onclick="shareToWhatsApp(currentViewingBill)" class="py-2.5 rounded-xl bg-green-600 hover:bg-green-500 text-white flex items-center justify-center space-x-1.5 shadow">
+            <i class="fa-brands fa-whatsapp text-base"></i>
+            <span>WhatsApp (JPEG)</span>
+          </button>
+
+          <!-- Save JPEG -->
+          <button onclick="saveReceiptAsJpeg(currentViewingBill)" class="py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center space-x-1.5 shadow">
+            <i class="fa-solid fa-download"></i>
+            <span>Save JPEG</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. RECEIPT BILL CUSTOMIZER MODAL -->
+  <div id="receiptCustomizerModal" class="hidden fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-3">
+    <div class="bg-[#18181b] border border-purple-500/40 w-full max-w-md rounded-2xl overflow-hidden flex flex-col max-h-[94vh] shadow-2xl">
+      <div class="px-4 py-3 bg-[#202026] border-b border-gray-700 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center text-sm">
+            <i class="fa-solid fa-sliders"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white leading-none">Receipt & Bill Customizer</h3>
+            <p class="text-[10px] text-gray-400 mt-0.5">Customize layout, columns, font, and branding</p>
+          </div>
+        </div>
+        <button onclick="closeReceiptCustomizerModal()" class="text-gray-400 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="p-4 overflow-y-auto space-y-4 text-xs">
+        <div class="bg-[#141417] p-3 rounded-xl border border-gray-800 space-y-3">
+          <div class="flex items-center justify-between text-xs font-bold text-purple-400 uppercase tracking-wider">
+            <span><i class="fa-solid fa-store mr-1.5"></i>Store Header Branding</span>
+          </div>
+
+          <div>
+            <label class="block text-gray-300 mb-1 font-medium">Store Name</label>
+            <input type="text" id="custStoreName" oninput="updateCustomizerLivePreview()" class="w-full bg-[#1e1e24] border border-gray-700 rounded-lg px-2.5 py-1.5 text-white font-bold text-xs focus:border-purple-500 outline-none">
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-gray-300 mb-1 font-medium">Title Font Size</label>
+              <select id="custHeaderFontSize" onchange="updateCustomizerLivePreview()" class="w-full bg-[#1e1e24] border border-gray-700 rounded-lg px-2 py-1.5 text-white text-xs outline-none">
+                <option value="normal">Standard (16px)</option>
+                <option value="large">Large Bold (18px)</option>
+                <option value="xlarge">Extra Large (22px)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-gray-300 mb-1 font-medium">Paper Roll Width</label>
+              <select id="custPaperWidth" onchange="updateCustomizerLivePreview()" class="w-full bg-[#1e1e24] border border-gray-700 rounded-lg px-2 py-1.5 text-white text-xs outline-none">
+                <option value="80mm">80mm Standard POS</option>
+                <option value="58mm">58mm Mini POS</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-gray-300 font-medium">Store Tagline</label>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="custShowTagline" onchange="updateCustomizerLivePreview()" class="w-3.5 h-3.5 accent-purple-500 rounded">
+                <span class="text-[11px] text-gray-400 ml-1.5">Show</span>
+              </label>
+            </div>
+            <input type="text" id="custTagline" placeholder="e.g. Exclusive Denim & Casual Store" oninput="updateCustomizerLivePreview()" class="w-full bg-[#1e1e24] border border-gray-700 rounded-lg px-2.5 py-1.5 text-white text-xs focus:border-purple-500 outline-none">
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-gray-300 font-medium">Store Address</label>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="custShowAddress" onchange="updateCustomizerLivePreview()" class="w-3.5 h-3.5 accent-purple-500 rounded">
+                <span class="text-[11px] text-gray-400 ml-1.5">Show</span>
+              </label>
+            </div>
+            <input type="text" id="custAddress" oninput="updateCustomizerLivePreview()" class="w-full bg-[#1e1e24] border border-gray-700 rounded-lg px-2.5 py-1.5 text-white text-xs focus:border-purple-500 outline-none">
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-gray-300 font-medium">Contact Phone</label>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="custShowPhone" onchange="updateCustomizerLivePreview()" class="w-3.5 h-3.5 accent-purple-500 rounded">
+                <span class="text-[11px] text-gray-400 ml-1.5">Show</span>
+              </label>
+            </div>
+            <input type="text" id="custPhone" oninput="updateCustomizerLivePreview()" class="w-full bg-[#1e1e24] border border-gray-700 rounded-lg px-2.5 py-1.5 text-white text-xs focus:border-purple-500 outline-none">
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-gray-300 font-medium">GSTIN (Optional)</label>
+              <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="custShowGstin" onchange="updateCustomizerLivePreview()" class="w-3.5 h-3.5 accent-purple-500 rounded">
+                <span class="text-[11px] text-gray-400 ml-1.5">Show</span>
+              </label>
+            </div>
+            <input type="text" id="custGstin" placeholder="e.g. 07AAAAA0000A1Z5" oninput="updateCustomizerLivePreview()" class="w-full bg-[#1e1e24] border border-gray-700 rounded-lg px-2.5 py-1.5 text-white text-xs font-mono-num uppercase focus:border-purple-500 outline-none">
+          </div>
+        </div>
+
+        <!-- Live Preview -->
+        <div class="bg-[#141417] p-3 rounded-xl border border-gray-800 space-y-2">
+          <div class="flex items-center justify-between text-xs font-bold text-gray-300">
+            <span><i class="fa-solid fa-eye text-emerald-400 mr-1.5"></i>Live Receipt Preview</span>
+            <span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-mono-num" id="previewRollTag">80mm</span>
+          </div>
+
+          <div class="bg-[#000000] p-3 rounded-xl flex justify-center overflow-x-auto">
+            <div id="customizerLivePreviewPaper" class="receipt-paper p-3 text-[11px] leading-relaxed shadow-lg border border-gray-400 w-[270px]"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-3 bg-[#202026] border-t border-gray-700 flex items-center gap-2">
+        <button onclick="resetReceiptCustomization()" class="px-3 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold text-xs flex items-center justify-center gap-1">
+          <i class="fa-solid fa-rotate-left"></i>
+          <span>Reset</span>
+        </button>
+        <button onclick="saveReceiptCustomization()" class="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-lg">
+          <i class="fa-solid fa-floppy-disk"></i>
+          <span>Save Customization</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. SHARE BILL MODAL -->
+  <div id="shareModal" class="hidden fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-3">
+    <div class="bg-[#1e1e24] border border-gray-700 w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl p-4">
+      <div class="flex items-center justify-between pb-3 border-b border-gray-700">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-sm">
+            <i class="fa-solid fa-share-nodes"></i>
+          </div>
+          <div>
+            <h4 class="text-sm font-bold text-white">Share Receipt</h4>
+            <p class="text-[11px] text-gray-400">Share high quality JPEG receipt</p>
+          </div>
+        </div>
+        <button onclick="closeShareModal()" class="text-gray-400 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="py-4 grid grid-cols-2 gap-3 text-center">
+        <button onclick="shareToWhatsApp(currentViewingBill)" class="p-3.5 bg-[#282830] hover:bg-green-600/20 hover:border-green-500/50 border border-gray-700 rounded-xl flex flex-col items-center justify-center space-y-1.5 transition">
+          <i class="fa-brands fa-whatsapp text-3xl text-green-500"></i>
+          <span class="text-xs font-bold text-white">WhatsApp (JPEG)</span>
+          <span class="text-[10px] text-gray-400">Thermal receipt image</span>
+        </button>
+
+        <button onclick="saveReceiptAsJpeg(currentViewingBill); closeShareModal();" class="p-3.5 bg-[#282830] hover:bg-emerald-600/20 hover:border-emerald-500/50 border border-gray-700 rounded-xl flex flex-col items-center justify-center space-y-1.5 transition">
+          <i class="fa-solid fa-file-image text-3xl text-emerald-400"></i>
+          <span class="text-xs font-bold text-white">Save JPEG</span>
+          <span class="text-[10px] text-gray-400">Download slip</span>
+        </button>
+
+        <button onclick="triggerSystemShare(currentViewingBill)" class="p-3.5 bg-[#282830] hover:bg-indigo-600/20 hover:border-indigo-500/50 border border-gray-700 rounded-xl flex flex-col items-center justify-center space-y-1.5 transition">
+          <i class="fa-solid fa-share text-2xl text-indigo-400"></i>
+          <span class="text-xs font-bold text-gray-200">Other Apps</span>
+        </button>
+
+        <button onclick="copyBillTextToClipboard(currentViewingBill)" class="p-3.5 bg-[#282830] hover:bg-amber-600/20 hover:border-amber-500/50 border border-gray-700 rounded-xl flex flex-col items-center justify-center space-y-1.5 transition">
+          <i class="fa-regular fa-copy text-2xl text-amber-400"></i>
+          <span class="text-xs font-bold text-gray-200">Copy Text</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. EDIT BILL LINE ITEM MODAL -->
+  <div id="editItemModal" class="hidden fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-[#1e1e24] border border-gray-700 w-full max-w-xs rounded-2xl overflow-hidden p-4 shadow-2xl">
+      <div class="flex justify-between items-center pb-2 border-b border-gray-700 mb-3">
+        <h4 class="text-sm font-bold text-white">Edit Bill Item #<span id="editModalSr">1</span></h4>
+        <button onclick="closeEditItemModal()" class="text-gray-400 hover:text-white p-1">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block text-gray-400 mb-1">Item Description</label>
+          <input type="text" id="editModalItemName" class="w-full bg-[#141417] border border-gray-700 rounded-lg px-2.5 py-2 text-white text-xs focus:border-amber-500 outline-none">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-gray-400 mb-1">Quantity</label>
+            <input type="number" id="editModalQty" min="1" class="w-full bg-[#141417] border border-gray-700 rounded-lg px-2.5 py-2 text-white text-xs focus:border-amber-500 outline-none font-mono-num">
+          </div>
+          <div>
+            <label class="block text-gray-400 mb-1">Rate</label>
+            <input type="number" id="editModalRate" min="0" class="w-full bg-[#141417] border border-gray-700 rounded-lg px-2.5 py-2 text-white text-xs focus:border-amber-500 outline-none font-mono-num">
+          </div>
+        </div>
+        <div class="pt-2 flex gap-2">
+          <button onclick="deleteActiveBillItem()" class="flex-1 py-2 rounded-xl bg-red-600/80 hover:bg-red-500 text-white font-bold flex items-center justify-center gap-1">
+            <i class="fa-solid fa-trash-can text-xs"></i>
+            <span>Delete</span>
+          </button>
+          <button onclick="saveActiveBillItemEdits()" class="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold flex items-center justify-center gap-1">
+            <i class="fa-solid fa-check text-xs"></i>
+            <span>Update</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. EVERYDAY SALES REPORT MODAL (VIEW BILL ENABLED) -->
+  <div id="reportsModal" class="hidden fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-3">
+    <div class="bg-[#18181b] border border-gray-700 w-full max-w-md rounded-2xl overflow-hidden flex flex-col max-h-[92vh] shadow-2xl">
+      <div class="px-4 py-3 bg-[#242427] border-b border-gray-700 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-chart-line text-amber-500"></i>
+          <h3 class="text-sm font-bold text-white">Daily Sales Report</h3>
+        </div>
+        <button onclick="closeReportsModal()" class="text-gray-400 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="p-3 bg-[#1e1e24] border-b border-gray-800 flex items-center justify-between text-xs">
+        <span class="text-gray-400 font-medium">Select Date:</span>
+        <input type="date" id="reportDateInput" onchange="renderDailyReport()" class="bg-[#121215] text-white border border-gray-700 rounded px-2 py-1 text-xs outline-none">
+      </div>
+
+      <div class="p-3 grid grid-cols-3 gap-2 bg-[#121215] border-b border-gray-800 text-center">
+        <div class="bg-[#1e1e24] p-2 rounded-xl border border-gray-800">
+          <div class="text-[10px] text-gray-400 uppercase font-semibold">Bills</div>
+          <div class="text-base font-extrabold text-white font-mono-num" id="kpiTotalBills">0</div>
+        </div>
+        <div class="bg-[#1e1e24] p-2 rounded-xl border border-gray-800">
+          <div class="text-[10px] text-gray-400 uppercase font-semibold">Total Qty</div>
+          <div class="text-base font-extrabold text-amber-400 font-mono-num" id="kpiTotalQty">0</div>
+        </div>
+        <div class="bg-[#1e1e24] p-2 rounded-xl border border-gray-800">
+          <div class="text-[10px] text-gray-400 uppercase font-semibold">Total Sales</div>
+          <div class="text-base font-extrabold text-emerald-400 font-mono-num" id="kpiTotalAmount">0</div>
+        </div>
+      </div>
+
+      <!-- Saved Bills List -->
+      <div class="flex-1 overflow-y-auto p-3 space-y-2 bg-[#0f0f12]" id="reportBillsList"></div>
+    </div>
+  </div>
+
+  <!-- 6. INVENTORY & STOCK MANAGEMENT MODAL -->
+  <div id="inventoryModal" class="hidden fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-3">
+    <div class="bg-[#18181b] border border-gray-700 w-full max-w-md rounded-2xl overflow-hidden flex flex-col max-h-[92vh] shadow-2xl">
+      <div class="px-4 py-3 bg-[#242427] border-b border-gray-700 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-boxes-stacked text-emerald-400"></i>
+          <h3 class="text-sm font-bold text-white">Inventory & Quick Items</h3>
+        </div>
+        <button onclick="closeInventoryModal()" class="text-gray-400 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="p-3 bg-[#1e1e24] border-b border-gray-800 flex items-center gap-2">
+        <div class="relative flex-1">
+          <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-gray-500 text-xs"></i>
+          <input type="text" id="inventorySearchInput" oninput="renderInventoryItems()" placeholder="Search product..." 
+                 class="w-full bg-[#121215] text-white pl-8 pr-2 py-1.5 rounded-lg border border-gray-700 text-xs focus:border-emerald-500 outline-none">
+        </div>
+        <button onclick="openAddProductModal()" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1 shadow">
+          <i class="fa-solid fa-plus"></i>
+          <span>New</span>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-3 space-y-2 bg-[#0f0f12]" id="inventoryItemsContainer"></div>
+    </div>
+  </div>
+
+  <!-- 7. ADD / EDIT PRODUCT MODAL -->
+  <div id="productEditModal" class="hidden fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-[#1e1e24] border border-gray-700 w-full max-w-xs rounded-2xl overflow-hidden p-4 shadow-2xl">
+      <div class="flex justify-between items-center pb-2 border-b border-gray-700 mb-3">
+        <h4 class="text-sm font-bold text-white" id="productEditModalTitle">Add New Product</h4>
+        <button onclick="closeProductEditModal()" class="text-gray-400 hover:text-white p-1">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block text-gray-400 mb-1">Product Name *</label>
+          <input type="text" id="prodInputName" placeholder="e.g. 28/32 Poly" class="w-full bg-[#141417] border border-gray-700 rounded-lg px-2.5 py-2 text-white text-xs focus:border-emerald-500 outline-none">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-gray-400 mb-1">Rate *</label>
+            <input type="number" id="prodInputRate" placeholder="270" class="w-full bg-[#141417] border border-gray-700 rounded-lg px-2.5 py-2 text-white text-xs focus:border-emerald-500 outline-none font-mono-num">
+          </div>
+          <div>
+            <label class="block text-gray-400 mb-1">Stock Quantity</label>
+            <input type="number" id="prodInputStock" placeholder="50" class="w-full bg-[#141417] border border-gray-700 rounded-lg px-2.5 py-2 text-white text-xs focus:border-emerald-500 outline-none font-mono-num">
+          </div>
+        </div>
+        <div>
+          <label class="block text-gray-400 mb-1">Category</label>
+          <input type="text" id="prodInputCategory" placeholder="JEANS" class="w-full bg-[#141417] border border-gray-700 rounded-lg px-2.5 py-2 text-white text-xs focus:border-emerald-500 outline-none">
+        </div>
+        <div class="pt-2">
+          <button onclick="saveProductCatalogItem()" class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center justify-center gap-1 shadow">
+            <i class="fa-solid fa-check"></i>
+            <span>Save Product</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. SETTINGS MODAL -->
+  <div id="settingsModal" class="hidden fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-3">
+    <div class="bg-[#18181b] border border-gray-700 w-full max-w-sm rounded-2xl overflow-hidden flex flex-col max-h-[92vh] shadow-2xl">
+      <div class="px-4 py-3 bg-[#242427] border-b border-gray-700 flex items-center justify-between">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-store text-emerald-400"></i>
+          Store & Printer Settings
+        </h3>
+        <button onclick="closeSettingsModal()" class="text-gray-400 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="p-4 overflow-y-auto space-y-3 text-xs">
+        <div>
+          <label class="block text-gray-400 mb-1">Shop Name *</label>
+          <input type="text" id="settingStoreName" class="w-full bg-[#141417] border border-gray-700 rounded-lg px-3 py-2 text-white focus:border-amber-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-gray-400 mb-1">Store Address</label>
+          <input type="text" id="settingStoreAddress" class="w-full bg-[#141417] border border-gray-700 rounded-lg px-3 py-2 text-white focus:border-amber-500 outline-none">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-gray-400 mb-1">Phone Number</label>
+            <input type="text" id="settingPhone" class="w-full bg-[#141417] border border-gray-700 rounded-lg px-3 py-2 text-white focus:border-amber-500 outline-none">
+          </div>
+          <div>
+            <label class="block text-gray-400 mb-1">Next Bill #</label>
+            <input type="number" id="settingNextBillNum" class="w-full bg-[#141417] border border-gray-700 rounded-lg px-3 py-2 text-white focus:border-amber-500 outline-none font-mono-num">
+          </div>
+        </div>
+
+        <!-- Bluetooth Config Card -->
+        <div class="p-3 bg-[#1e1e24] border border-blue-500/30 rounded-xl space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-blue-400 text-xs flex items-center gap-1.5">
+              <i class="fa-brands fa-bluetooth-b"></i> Bluetooth 80mm Printer
+            </span>
+            <button onclick="closeSettingsModal(); openBtModal();" class="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white font-bold text-[11px]">
+              Pair Device
+            </button>
+          </div>
+          <p class="text-[11px] text-gray-400">One-touch wireless thermal printing with automatic paper cut.</p>
+        </div>
+
+        <div class="flex items-center justify-between p-2.5 bg-[#141417] rounded-xl border border-gray-800">
+          <span class="text-gray-300 font-medium">Keypad Sound Effect</span>
+          <input type="checkbox" id="settingAudioClick" checked class="w-4 h-4 accent-amber-500 rounded">
+        </div>
+      </div>
+
+      <div class="p-3 bg-[#242427] border-t border-gray-700">
+        <button onclick="saveStoreSettings()" class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center justify-center space-x-1.5 shadow">
+          <i class="fa-solid fa-floppy-disk"></i>
+          <span>Save Changes</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9. BLUETOOTH THERMAL PRINTER MODAL -->
+  <div id="btModal" class="hidden fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-[#1e1e24] border border-blue-500/40 w-full max-w-xs rounded-2xl overflow-hidden p-4 shadow-2xl">
+      <div class="flex justify-between items-center pb-2 border-b border-gray-700 mb-3">
+        <h4 class="text-sm font-bold text-white flex items-center gap-1.5">
+          <i class="fa-brands fa-bluetooth text-blue-400"></i>
+          Bluetooth Thermal Printer (Auto-Cut)
+        </h4>
+        <button onclick="closeBtModal()" class="text-gray-400 hover:text-white p-1">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div class="p-3 bg-[#121215] border border-gray-800 rounded-xl">
+          <div class="text-[10px] text-gray-400 uppercase font-semibold">Bluetooth Status</div>
+          <div class="text-sm font-bold text-white flex items-center gap-2 mt-1">
+            <span id="btStatusDot" class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+            <span id="btStatusText">Disconnected</span>
+          </div>
+          <div class="text-[11px] text-gray-400 mt-1" id="btDeviceNameText">No printer paired</div>
+        </div>
+
+        <button onclick="pairWebBluetooth()" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center justify-center gap-2 shadow">
+          <i class="fa-brands fa-bluetooth-b"></i>
+          <span>Pair Bluetooth Device</span>
+        </button>
+
+        <button onclick="testPrintBluetooth()" class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center justify-center gap-2 shadow">
+          <i class="fa-solid fa-print"></i>
+          <span>Print Test Slip (Auto-Cut)</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Offscreen Canvas for High-Quality Thermal JPEG Generation -->
+  <canvas id="exportCanvas" class="hidden"></canvas>
+
+
+  <!-- ================= JAVASCRIPT ================= -->
+  <script>
+    const STORAGE_KEY_SETTINGS = 'addis_pos_settings';
+    const STORAGE_KEY_ITEMS = 'addis_pos_inventory_v2';
+    const STORAGE_KEY_BILLS = 'addis_pos_saved_bills';
+    const STORAGE_KEY_RECEIPT_CONFIG = 'addis_pos_receipt_customization';
+
+    let storeSettings = {
+      storeName: 'ADDIS JEANS',
+      address: 'Gandhi Nagar',
+      phone: '9811348044',
+      nextBillNum: 1,
+      audioClick: true
+    };
+
+    let receiptConfig = {
+      storeName: 'ADDIS JEANS',
+      headerFontSize: 'large',
+      paperWidth: '80mm',
+      currency: '',
+      billPrefix: 'Bill #',
+      tagline: 'Exclusive Denim & Casuals',
+      showTagline: false,
+      address: 'Gandhi Nagar',
+      showAddress: true,
+      phone: '9811348044',
+      showPhone: true,
+      gstin: '',
+      showGstin: false,
+      showDateTime: true,
+      showCustomerName: true,
+      showSrNo: true,
+      showRateCol: false,
+      showTotalQty: true,
+      showPaymentMode: true,
+      footerNote: 'Thank You! Visit Again 🙏',
+      showFooterNote: true,
+      termsNote: 'Exchange within 7 days with bill.',
+      showTerms: false,
+      upiId: '',
+      showUpiQr: false
+    };
+
+    // Pre-filled 40 items
+    let inventory = [
+      { id: "1", name: "28/32 Poly", category: "JEANS", rate: 270, stock: 50 },
+      { id: "2", name: "40/40 Poly", category: "JEANS", rate: 260, stock: 50 },
+      { id: "3", name: "32/40 Poly", category: "JEANS", rate: 220, stock: 50 },
+      { id: "4", name: "34/36 Poly", category: "JEANS", rate: 290, stock: 50 },
+      { id: "5", name: "38/40 Poly", category: "JEANS", rate: 320, stock: 50 },
+      { id: "6", name: "32 Poly", category: "JEANS", rate: 280, stock: 50 },
+      { id: "7", name: "28/32 Slub", category: "JEANS", rate: 310, stock: 50 },
+      { id: "8", name: "40/40 Slub", category: "JEANS", rate: 300, stock: 50 },
+      { id: "9", name: "32/40 Slub", category: "JEANS", rate: 250, stock: 50 },
+      { id: "10", name: "34/36 Slub", category: "JEANS", rate: 330, stock: 50 },
+      { id: "11", name: "28/32 Wisker", category: "JEANS", rate: 320, stock: 50 },
+      { id: "12", name: "40/40 Wisker", category: "JEANS", rate: 310, stock: 50 },
+      { id: "13", name: "32/40 Wisker", category: "JEANS", rate: 260, stock: 50 },
+      { id: "14", name: "28/32 Fire", category: "JEANS", rate: 320, stock: 50 },
+      { id: "15", name: "40/40 Fire", category: "JEANS", rate: 310, stock: 50 },
+      { id: "16", name: "32/40 Fire", category: "JEANS", rate: 260, stock: 50 },
+      { id: "17", name: "28/32 Bootcut", category: "JEANS", rate: 340, stock: 50 },
+      { id: "18", name: "40/40 Bootcut", category: "JEANS", rate: 330, stock: 50 },
+      { id: "19", name: "32/40 Bootcut", category: "JEANS", rate: 270, stock: 50 },
+      { id: "20", name: "28/32 Jorden", category: "JEANS", rate: 330, stock: 50 },
+      { id: "21", name: "40/40 Jorden", category: "JEANS", rate: 320, stock: 50 },
+      { id: "22", name: "32/40 Jorden", category: "JEANS", rate: 270, stock: 50 },
+      { id: "23", name: "28/32 DMG", category: "JEANS", rate: 290, stock: 50 },
+      { id: "24", name: "40/40 DMG", category: "JEANS", rate: 280, stock: 50 },
+      { id: "25", name: "32/40 DMG", category: "JEANS", rate: 230, stock: 50 },
+      { id: "26", name: "28/32 Six-Pocket", category: "JEANS", rate: 310, stock: 50 },
+      { id: "27", name: "40/40 Six-Pocket", category: "JEANS", rate: 300, stock: 50 },
+      { id: "28", name: "32/40 Six-Pocket", category: "JEANS", rate: 260, stock: 50 },
+      { id: "29", name: "28/32 Z-Black", category: "JEANS", rate: 280, stock: 50 },
+      { id: "30", name: "40/40 Z-Black", category: "JEANS", rate: 260, stock: 50 },
+      { id: "31", name: "28/32 Z-Black", category: "JEANS", rate: 250, stock: 50 },
+      { id: "32", name: "28/32 Z-Black", category: "JEANS", rate: 200, stock: 50 },
+      { id: "33", name: "28/32 White", category: "JEANS", rate: 240, stock: 50 },
+      { id: "34", name: "40/40 White", category: "JEANS", rate: 230, stock: 50 },
+      { id: "35", name: "32/40 White", category: "JEANS", rate: 150, stock: 50 },
+      { id: "36", name: "28/34 Cotton", category: "COTTON", rate: 210, stock: 50 },
+      { id: "37", name: "28/34 Formal", category: "FORMAL", rate: 180, stock: 50 },
+      { id: "38", name: "28/34 Joggers", category: "JOGGERS", rate: 200, stock: 50 },
+      { id: "39", name: "Cotton", category: "COTTON", rate: 350, stock: 50 },
+      { id: "40", name: "RFD", category: "RFD", rate: 330, stock: 50 }
+    ];
+
+    let savedBills = [];
+
+    let activeBill = {
+      billNo: 1,
+      date: '',
+      customerName: '',
+      paymentMode: 'Cash',
+      items: []
+    };
+
+    let currentViewingBill = null;
+    let editingSavedBillId = null;
+    let activeField = 'qty';
+    let currentQtyStr = '1';
+    let isQtyDefault = true;
+    let currentRateStr = '';
+    let selectedSuggestedItemName = '';
+
+    // Recheck state
+    let isRechecking = false;
+    let recheckItemsState = [];
+
+    let audioCtx = null;
+    let bluetoothDevice = null;
+    let bluetoothCharacteristic = null;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadLocalStorageData();
+      initNewBill();
+      renderPresetQuickChips();
+      renderActiveBillUI();
+    });
+
+    function loadLocalStorageData() {
+      try {
+        const savedSt = localStorage.getItem(STORAGE_KEY_SETTINGS);
+        if (savedSt) {
+          storeSettings = Object.assign(storeSettings, JSON.parse(savedSt));
+          if (!storeSettings.address || storeSettings.address === 'Shop No. 4, Market Complex') {
+            storeSettings.address = 'Gandhi Nagar';
+          }
+        }
+
+        const savedReceipt = localStorage.getItem(STORAGE_KEY_RECEIPT_CONFIG);
+        if (savedReceipt) {
+          receiptConfig = Object.assign(receiptConfig, JSON.parse(savedReceipt));
+          if (receiptConfig.currency === '₹') receiptConfig.currency = '';
+          if (!receiptConfig.address || receiptConfig.address === 'Shop No. 4, Market Complex') {
+            receiptConfig.address = 'Gandhi Nagar';
+          }
+        } else {
+          receiptConfig.storeName = storeSettings.storeName;
+          receiptConfig.address = storeSettings.address;
+          receiptConfig.phone = storeSettings.phone;
+        }
+
+        const savedInv = localStorage.getItem(STORAGE_KEY_ITEMS);
+        if (savedInv) inventory = JSON.parse(savedInv);
+
+        const savedB = localStorage.getItem(STORAGE_KEY_BILLS);
+        if (savedB) savedBills = JSON.parse(savedB);
+      } catch (e) {
+        console.error('Storage error', e);
+      }
+      document.getElementById('headerStoreName').innerText = storeSettings.storeName;
+    }
+
+    function saveAllToStorage() {
+      localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(storeSettings));
+      localStorage.setItem(STORAGE_KEY_RECEIPT_CONFIG, JSON.stringify(receiptConfig));
+      localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(inventory));
+      localStorage.setItem(STORAGE_KEY_BILLS, JSON.stringify(savedBills));
+    }
+
+    function initNewBill() {
+      editingSavedBillId = null;
+      currentViewingBill = null;
+      isRechecking = false;
+      document.getElementById('recheckContainer').classList.add('hidden');
+      document.getElementById('recheckStatusBadge').classList.add('hidden');
+      document.getElementById('recheckBtnText').innerText = "Start Recheck";
+      document.getElementById('thermalReceiptPaper').classList.remove('opacity-40');
+
+      document.getElementById('activeEditBadge').classList.add('hidden');
+      document.getElementById('cancelEditBanner').classList.add('hidden');
+      document.getElementById('keypadSaveBtn').innerHTML = `<i class="fa-solid fa-circle-check text-xs mb-0.5"></i><span>SAVE</span>`;
+      document.getElementById('keypadSaveBtn').classList.remove('bg-emerald-500');
+      document.getElementById('keypadSaveBtn').classList.add('bg-amber-500');
+
+      activeBill = {
+        billNo: storeSettings.nextBillNum,
+        date: new Date().toISOString(),
+        customerName: '',
+        paymentMode: 'Cash',
+        items: []
+      };
+
+      const prefix = receiptConfig.billPrefix || 'Bill #';
+      document.getElementById('displayBillNum').innerText = `${prefix}${String(activeBill.billNo).padStart(2, '0')}`;
+      document.getElementById('custNameInput').value = '';
+      document.getElementById('paymentModeSelect').value = 'Cash';
+
+      resetKeypadInputs();
+    }
+
+    function playClickSound() {
+      if (!storeSettings.audioClick) return;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(650, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.035);
+        gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.035);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.038);
+      } catch (err) {}
+    }
+
+    function setActiveField(field) {
+      playClickSound();
+      activeField = field;
+      const qtyWrap = document.getElementById('qtyBoxWrapper');
+      const rateWrap = document.getElementById('rateBoxWrapper');
+      if (field === 'qty') {
+        qtyWrap.className = 'flex-1 bg-[#121215] border-2 border-amber-500 rounded-lg p-1.5 text-center cursor-pointer transition';
+        rateWrap.className = 'flex-1 bg-[#121215] border border-gray-700 rounded-lg p-1.5 text-center cursor-pointer transition';
+      } else {
+        qtyWrap.className = 'flex-1 bg-[#121215] border border-gray-700 rounded-lg p-1.5 text-center cursor-pointer transition';
+        rateWrap.className = 'flex-1 bg-[#121215] border-2 border-amber-500 rounded-lg p-1.5 text-center cursor-pointer transition';
+      }
+    }
+
+    function tapKey(char) {
+      playClickSound();
+      if (activeField === 'qty') {
+        if (isQtyDefault) {
+          if (char === '.') currentQtyStr = '0.';
+          else currentQtyStr = char;
+          isQtyDefault = false;
+        } else {
+          if (char === '.' && currentQtyStr.includes('.')) return;
+          currentQtyStr += char;
+        }
+        document.getElementById('activeQtyVal').innerText = currentQtyStr;
+      } else {
+        if (char === '.' && currentRateStr.includes('.')) return;
+        currentRateStr += char;
+        document.getElementById('activeRateVal').innerText = currentRateStr || '0';
+        checkRateAutoSuggestions(parseFloat(currentRateStr));
+      }
+    }
+
+    function tapBackspace() {
+      playClickSound();
+      if (activeField === 'qty') {
+        currentQtyStr = currentQtyStr.slice(0, -1);
+        if (!currentQtyStr || currentQtyStr === '0') {
+          currentQtyStr = '1';
+          isQtyDefault = true;
+        }
+        document.getElementById('activeQtyVal').innerText = currentQtyStr;
+      } else {
+        currentRateStr = currentRateStr.slice(0, -1);
+        document.getElementById('activeRateVal').innerText = currentRateStr || '0';
+        checkRateAutoSuggestions(parseFloat(currentRateStr));
+      }
+    }
+
+    function tapClear() {
+      playClickSound();
+      resetKeypadInputs();
+    }
+
+    function resetKeypadInputs() {
+      currentQtyStr = '1';
+      isQtyDefault = true;
+      currentRateStr = '';
+      selectedSuggestedItemName = '';
+      document.getElementById('activeQtyVal').innerText = '1';
+      document.getElementById('activeRateVal').innerText = '0';
+      document.getElementById('rateSuggestBar').classList.add('hidden');
+      setActiveField('qty');
+    }
+
+    function tapEnterKey() {
+      playClickSound();
+      if (activeField === 'qty') {
+        setActiveField('rate');
+      } else {
+        commitLineItem();
+      }
+    }
+
+    function commitLineItem() {
+      const qty = parseFloat(currentQtyStr) || 1;
+      const rate = parseFloat(currentRateStr) || 0;
+      if (rate <= 0) {
+        alert('Please enter a valid rate greater than 0');
+        return;
+      }
+      let itemName = selectedSuggestedItemName || `Item #${activeBill.items.length + 1}`;
+      activeBill.items.push({
+        id: Date.now().toString(),
+        name: itemName,
+        qty: qty,
+        rate: rate,
+        total: Math.round(qty * rate * 100) / 100
+      });
+      resetKeypadInputs();
+      renderActiveBillUI();
+    }
+
+    function checkRateAutoSuggestions(enteredRate) {
+      const suggestBar = document.getElementById('rateSuggestBar');
+      const pillsContainer = document.getElementById('rateSuggestPills');
+      if (!enteredRate || isNaN(enteredRate)) {
+        suggestBar.classList.add('hidden');
+        selectedSuggestedItemName = '';
+        return;
+      }
+      const matches = inventory.filter(item => item.rate === enteredRate);
+      if (matches.length === 0) {
+        suggestBar.classList.add('hidden');
+        selectedSuggestedItemName = '';
+        return;
+      }
+      pillsContainer.innerHTML = '';
+      matches.forEach((item, index) => {
+        const pill = document.createElement('button');
+        pill.className = 'px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] font-medium hover:bg-amber-500/40 shrink-0';
+        pill.innerText = item.name;
+        pill.onclick = () => {
+          playClickSound();
+          selectedSuggestedItemName = item.name;
+          pill.className = 'px-2.5 py-0.5 rounded-full bg-amber-500 text-black font-bold text-[11px] shrink-0';
+        };
+        pillsContainer.appendChild(pill);
+        if (index === 0) selectedSuggestedItemName = item.name;
+      });
+      suggestBar.classList.remove('hidden');
+    }
+
+    function renderPresetQuickChips() {
+      const container = document.getElementById('presetPillsContainer');
+      container.innerHTML = '';
+      inventory.slice(0, 4).forEach(item => {
+        const btn = document.createElement('button');
+        btn.className = 'w-full py-1.5 px-3 bg-[#1c1c20] hover:bg-[#27272e] border border-gray-700/60 rounded-lg text-xs font-semibold text-gray-300 flex items-center justify-between transition';
+        btn.innerHTML = `<span>+ ${item.name}</span> <span class="text-amber-400 font-mono-num">${item.rate}</span>`;
+        btn.onclick = () => {
+          playClickSound();
+          activeBill.items.push({
+            id: Date.now().toString(),
+            name: item.name,
+            qty: 1,
+            rate: item.rate,
+            total: item.rate
+          });
+          renderActiveBillUI();
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    function renderActiveBillUI() {
+      const emptyState = document.getElementById('emptyBillState');
+      const itemsList = document.getElementById('activeItemsList');
+      if (activeBill.items.length === 0) {
+        emptyState.classList.remove('hidden');
+        itemsList.innerHTML = '';
+        document.getElementById('summaryTotalQty').innerText = '0';
+        document.getElementById('summaryGrandTotal').innerText = `0`;
+        return;
+      }
+      emptyState.classList.add('hidden');
+      itemsList.innerHTML = '';
+      let totalQty = 0;
+      let grandTotal = 0;
+      activeBill.items.forEach((item, index) => {
+        totalQty += item.qty;
+        grandTotal += item.total;
+        const row = document.createElement('div');
+        row.className = 'grid grid-cols-12 px-3 py-2 bg-[#18181b] hover:bg-[#202025] rounded-lg border border-gray-800 text-xs items-center cursor-pointer transition';
+        row.onclick = () => openEditItemModal(index);
+        row.innerHTML = `
+          <span class="col-span-1 text-center font-bold text-gray-400 text-[11px]">${index + 1}</span>
+          <span class="col-span-5 font-semibold text-white truncate pr-1">${item.name}</span>
+          <span class="col-span-2 text-center text-amber-400 font-mono-num font-bold">${item.qty}</span>
+          <span class="col-span-2 text-right text-gray-300 font-mono-num">${item.rate}</span>
+          <span class="col-span-2 text-right text-white font-extrabold font-mono-num">${item.total}</span>
+        `;
+        itemsList.appendChild(row);
+      });
+      document.getElementById('summaryTotalQty').innerText = `${totalQty} (Items: ${activeBill.items.length})`;
+      document.getElementById('summaryGrandTotal').innerText = `${grandTotal}`;
+    }
+
+    function handleSaveBillClick() {
+      playClickSound();
+      if (activeBill.items.length === 0) {
+        alert('Please add at least one item before saving.');
+        return;
+      }
+      activeBill.customerName = document.getElementById('custNameInput').value.trim();
+      activeBill.paymentMode = document.getElementById('paymentModeSelect').value;
+      activeBill.date = new Date().toISOString();
+      activeBill.totalQty = activeBill.items.reduce((sum, it) => sum + it.qty, 0);
+      activeBill.grandTotal = activeBill.items.reduce((sum, it) => sum + it.total, 0);
+
+      const prefix = receiptConfig.billPrefix || 'Bill #';
+      if (editingSavedBillId) {
+        const bIndex = savedBills.findIndex(b => b.id === editingSavedBillId);
+        if (bIndex >= 0) savedBills[bIndex] = { ...activeBill, id: editingSavedBillId };
+        alert(`${prefix}${activeBill.billNo} updated successfully!`);
+      } else {
+        activeBill.id = 'BILL_' + Date.now();
+        savedBills.unshift({ ...activeBill });
+        storeSettings.nextBillNum += 1;
+        document.getElementById('displayBillNum').innerText = `${prefix}${String(storeSettings.nextBillNum).padStart(2, '0')}`;
+        alert(`${prefix}${activeBill.billNo} saved successfully!`);
+      }
+      saveAllToStorage();
+      openReceiptModal({ ...activeBill });
+      initNewBill();
+    }
+
+    function cancelEditingBill() {
+      if (confirm('Discard changes and return to new bill?')) {
+        initNewBill();
+        renderActiveBillUI();
+      }
+    }
+
+    /* ==========================================================================
+       RECEIPT PREVIEW & TEXT BUILDER
+       ========================================================================== */
+    function populateReceiptModalContent(billData) {
+      const data = billData || activeBill;
+      currentViewingBill = data;
+      const cfg = receiptConfig;
+
+      document.getElementById('rcptModalHeaderTitle').innerText = `Receipt Preview (${cfg.paperWidth || '80mm'})`;
+      const paper = document.getElementById('thermalReceiptPaper');
+      paper.style.width = cfg.paperWidth === '58mm' ? '240px' : '310px';
+
+      const storeNameEl = document.getElementById('rcptStoreName');
+      storeNameEl.innerText = cfg.storeName || storeSettings.storeName;
+      storeNameEl.className = cfg.headerFontSize === 'xlarge' ? 'text-lg font-black tracking-wide uppercase' : 
+                             (cfg.headerFontSize === 'normal' ? 'text-sm font-bold tracking-wide uppercase' : 'text-base font-black tracking-wider uppercase');
+
+      const tagEl = document.getElementById('rcptTagline');
+      if (cfg.showTagline && cfg.tagline) {
+        tagEl.innerText = cfg.tagline;
+        tagEl.classList.remove('hidden');
+      } else {
+        tagEl.classList.add('hidden');
+      }
+
+      const addrEl = document.getElementById('rcptAddress');
+      if (cfg.showAddress && cfg.address) {
+        addrEl.innerText = cfg.address;
+        addrEl.classList.remove('hidden');
+      } else {
+        addrEl.classList.add('hidden');
+      }
+
+      const phWrap = document.getElementById('rcptPhoneWrapper');
+      if (cfg.showPhone && cfg.phone) {
+        document.getElementById('rcptPhone').innerText = cfg.phone;
+        phWrap.classList.remove('hidden');
+      } else {
+        phWrap.classList.add('hidden');
+      }
+
+      const gstinWrap = document.getElementById('rcptGstinWrapper');
+      if (cfg.showGstin && cfg.gstin) {
+        document.getElementById('rcptGstin').innerText = cfg.gstin;
+        gstinWrap.classList.remove('hidden');
+      } else {
+        gstinWrap.classList.add('hidden');
+      }
+
+      const prefix = cfg.billPrefix || 'Bill #';
+      document.getElementById('rcptBillNum').innerText = `${prefix}${String(data.billNo).padStart(2, '0')}`;
+      
+      const dtEl = document.getElementById('rcptDateTime');
+      if (cfg.showDateTime !== false) {
+        const d = data.date ? new Date(data.date) : new Date();
+        dtEl.innerText = d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        dtEl.classList.remove('hidden');
+      } else {
+        dtEl.classList.add('hidden');
+      }
+
+      const custRow = document.getElementById('rcptCustRow');
+      if (cfg.showCustomerName !== false && data.customerName) {
+        custRow.innerText = `Cust: ${data.customerName}`;
+        custRow.classList.remove('hidden');
+      } else {
+        custRow.classList.add('hidden');
+      }
+
+      const tableHeader = document.getElementById('rcptTableHeaderRow');
+      if (cfg.showRateCol) {
+        if (cfg.showSrNo !== false) {
+          tableHeader.innerHTML = `<span class="col-span-1">SR</span><span class="col-span-5 truncate">ITEM</span><span class="col-span-2 text-center">QTY</span><span class="col-span-2 text-right">RATE</span><span class="col-span-2 text-right">TOTAL</span>`;
+        } else {
+          tableHeader.innerHTML = `<span class="col-span-6 truncate">ITEM</span><span class="col-span-2 text-center">QTY</span><span class="col-span-2 text-right">RATE</span><span class="col-span-2 text-right">TOTAL</span>`;
+        }
+      } else {
+        if (cfg.showSrNo !== false) {
+          tableHeader.innerHTML = `<span class="col-span-2">SR</span><span class="col-span-5 truncate">ITEM</span><span class="col-span-2 text-center">QTY</span><span class="col-span-3 text-right">TOTAL</span>`;
+        } else {
+          tableHeader.innerHTML = `<span class="col-span-7 truncate">ITEM</span><span class="col-span-2 text-center">QTY</span><span class="col-span-3 text-right">TOTAL</span>`;
+        }
+      }
+
+      const tableContainer = document.getElementById('rcptItemsTable');
+      tableContainer.innerHTML = '';
+      let totalQty = 0;
+      let grandTotal = 0;
+
+      data.items.forEach((it, idx) => {
+        totalQty += it.qty;
+        grandTotal += it.total;
+        const row = document.createElement('div');
+        row.className = 'grid grid-cols-12 leading-tight';
+
+        if (cfg.showRateCol) {
+          if (cfg.showSrNo !== false) {
+            row.innerHTML = `<span class="col-span-1">${idx + 1}</span><span class="col-span-5 truncate pr-1">${it.name}</span><span class="col-span-2 text-center">${it.qty}</span><span class="col-span-2 text-right">${it.rate}</span><span class="col-span-2 text-right">${it.total}</span>`;
+          } else {
+            row.innerHTML = `<span class="col-span-6 truncate pr-1">${it.name}</span><span class="col-span-2 text-center">${it.qty}</span><span class="col-span-2 text-right">${it.rate}</span><span class="col-span-2 text-right">${it.total}</span>`;
+          }
+        } else {
+          if (cfg.showSrNo !== false) {
+            row.innerHTML = `<span class="col-span-2">${idx + 1}</span><span class="col-span-5 truncate pr-1">${it.name}</span><span class="col-span-2 text-center">${it.qty}</span><span class="col-span-3 text-right">${it.total}</span>`;
+          } else {
+            row.innerHTML = `<span class="col-span-7 truncate pr-1">${it.name}</span><span class="col-span-2 text-center">${it.qty}</span><span class="col-span-3 text-right">${it.total}</span>`;
+          }
+        }
+        tableContainer.appendChild(row);
+      });
+
+      const totalLabel = document.getElementById('rcptTotalItemsQtyLabel');
+      if (cfg.showTotalQty !== false) {
+        totalLabel.innerHTML = `Total Items: <span id="rcptTotalItems">${data.items.length}</span> (Qty: <span id="rcptTotalQty">${totalQty}</span>)`;
+      } else {
+        totalLabel.innerHTML = `Total Items: <span id="rcptTotalItems">${data.items.length}</span>`;
+      }
+
+      document.getElementById('rcptSubTotal').innerText = `${grandTotal}`;
+      document.getElementById('rcptGrandTotal').innerText = `${grandTotal}`;
+
+      const payWrap = document.getElementById('rcptPaymentModeWrapper');
+      if (cfg.showPaymentMode !== false) {
+        document.getElementById('rcptPaymentMode').innerText = data.paymentMode || 'Cash';
+        payWrap.classList.remove('hidden');
+      } else {
+        payWrap.classList.add('hidden');
+      }
+
+      // If recheck is active, refresh the recheck UI too
+      if (isRechecking) {
+        renderRecheckItemsUI();
+      }
+    }
+
+    function openReceiptModal(customBill) {
+      populateReceiptModalContent(customBill);
+      document.getElementById('receiptModal').classList.remove('hidden');
+    }
+
+    function closeReceiptModal() {
+      document.getElementById('receiptModal').classList.add('hidden');
+      if (isRechecking) {
+        toggleRecheckMode();
+      }
+    }
+
+    /* ==========================================================================
+       RECHECK BILL FEATURE IMPLEMENTATION
+       ========================================================================== */
+    function toggleRecheckMode() {
+      playClickSound();
+      const bill = currentViewingBill || activeBill;
+      if (!bill || !bill.items || bill.items.length === 0) {
+        alert("No items in bill to recheck.");
+        return;
+      }
+
+      isRechecking = !isRechecking;
+      const container = document.getElementById('recheckContainer');
+      const paper = document.getElementById('thermalReceiptPaper');
+      const btnText = document.getElementById('recheckBtnText');
+      const badge = document.getElementById('recheckStatusBadge');
+
+      if (isRechecking) {
+        btnText.innerText = "Close Recheck";
+        container.classList.remove('hidden');
+        paper.classList.add('opacity-40');
+        badge.classList.remove('hidden');
+
+        // Initialize state preserving previous checked states if any
+        recheckItemsState = bill.items.map((it, idx) => {
+          const existing = recheckItemsState.find(e => e.id === it.id);
+          return {
+            ...it,
+            originalIndex: idx,
+            isChecked: existing ? existing.isChecked : false
+          };
+        });
+
+        renderRecheckItemsUI();
+      } else {
+        btnText.innerText = "Start Recheck";
+        container.classList.add('hidden');
+        paper.classList.remove('opacity-40');
+        badge.classList.add('hidden');
+      }
+    }
+
+    function renderRecheckItemsUI() {
+      const listEl = document.getElementById('recheckItemsList');
+      if (!listEl) return;
+      listEl.innerHTML = '';
+
+      // Verified items (isChecked === true) move to the bottom; unchecked stay at top
+      const sorted = [...recheckItemsState].sort((a, b) => {
+        return (a.isChecked === b.isChecked) ? 0 : a.isChecked ? 1 : -1;
+      });
+
+      const checkedCount = recheckItemsState.filter(i => i.isChecked).length;
+      document.getElementById('recheckCount').innerText = checkedCount;
+      document.getElementById('recheckTotalCount').innerText = recheckItemsState.length;
+
+      sorted.forEach((item) => {
+        const card = document.createElement('div');
+        card.className = `p-2.5 rounded-xl border transition flex flex-col gap-2 ${
+          item.isChecked 
+            ? 'bg-emerald-950/30 border-emerald-500/50 opacity-80' 
+            : 'bg-[#1e1e24] border-gray-700'
+        }`;
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between gap-2">
+            <label class="flex items-center gap-2 cursor-pointer flex-1">
+              <input type="checkbox" ${item.isChecked ? 'checked' : ''} 
+                     onchange="onToggleItemCheck('${item.id}', this.checked)"
+                     class="w-4 h-4 accent-emerald-500 rounded cursor-pointer">
+              <span class="font-bold text-white text-xs ${item.isChecked ? 'line-through text-emerald-300' : ''}">
+                ${item.name}
+              </span>
+            </label>
+            <span class="text-amber-400 font-mono-num font-extrabold text-xs">
+              ${item.total}
+            </span>
+          </div>
+
+          <!-- Inline Edit Fields for Qty and Rate -->
+          <div class="flex items-center gap-2 pt-1 border-t border-gray-800 text-[11px]">
+            <div class="flex items-center gap-1">
+              <span class="text-gray-400">Qty:</span>
+              <input type="number" min="1" value="${item.qty}" 
+                     id="inlineQty_${item.id}"
+                     onchange="updateInlineItemValue('${item.id}')"
+                     class="w-14 bg-[#121215] border border-gray-700 rounded px-1.5 py-0.5 text-white font-mono-num text-center outline-none focus:border-amber-500">
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="text-gray-400">Rate:</span>
+              <input type="number" min="0" value="${item.rate}" 
+                     id="inlineRate_${item.id}"
+                     onchange="updateInlineItemValue('${item.id}')"
+                     class="w-16 bg-[#121215] border border-gray-700 rounded px-1.5 py-0.5 text-white font-mono-num text-center outline-none focus:border-amber-500">
+            </div>
+            <button onclick="updateInlineItemValue('${item.id}')" class="ml-auto px-2 py-0.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded font-semibold text-[10px]">
+              Sync
+            </button>
+          </div>
+        `;
+
+        listEl.appendChild(card);
+      });
+    }
+
+    function onToggleItemCheck(itemId, checked) {
+      playClickSound();
+      const target = recheckItemsState.find(it => it.id === itemId);
+      if (target) {
+        target.isChecked = checked;
+        renderRecheckItemsUI();
+      }
+    }
+
+    function updateInlineItemValue(itemId) {
+      const qtyInput = document.getElementById(`inlineQty_${itemId}`);
+      const rateInput = document.getElementById(`inlineRate_${itemId}`);
+      if (!qtyInput || !rateInput) return;
+
+      const newQty = parseFloat(qtyInput.value) || 1;
+      const newRate = parseFloat(rateInput.value) || 0;
+      const newTotal = Math.round(newQty * newRate * 100) / 100;
+
+      // Update recheck state
+      const stateItem = recheckItemsState.find(it => it.id === itemId);
+      if (stateItem) {
+        stateItem.qty = newQty;
+        stateItem.rate = newRate;
+        stateItem.total = newTotal;
+      }
+
+      // Update underlying bill object
+      const bill = currentViewingBill || activeBill;
+      const billItem = bill.items.find(it => it.id === itemId);
+      if (billItem) {
+        billItem.qty = newQty;
+        billItem.rate = newRate;
+        billItem.total = newTotal;
+
+        bill.totalQty = bill.items.reduce((sum, it) => sum + it.qty, 0);
+        bill.grandTotal = bill.items.reduce((sum, it) => sum + it.total, 0);
+
+        // If it's a saved bill from report, persist the changes to localStorage
+        if (bill.id && savedBills.some(b => b.id === bill.id)) {
+          const idx = savedBills.findIndex(b => b.id === bill.id);
+          if (idx >= 0) savedBills[idx] = { ...bill };
+          saveAllToStorage();
+        }
+
+        // Live refresh receipt content and live keypad bill UI
+        populateReceiptModalContent(bill);
+        renderActiveBillUI();
+      }
+
+      renderRecheckItemsUI();
+    }
+
+    /* Build Plain Text for Bluetooth ESC/POS */
+    function generatePlainTextReceipt(billData) {
+      const data = billData || currentViewingBill || (activeBill.items.length > 0 ? activeBill : (savedBills[0] || activeBill));
+      const cfg = receiptConfig;
+      const d = data.date ? new Date(data.date) : new Date();
+      const dateStr = d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+      let txt = "";
+      txt += `          ${cfg.storeName || storeSettings.storeName}
+`;
+      if (cfg.showAddress && cfg.address) txt += `          ${cfg.address}
+`;
+      if (cfg.showPhone && cfg.phone) txt += `            Ph: ${cfg.phone}
+`;
+      txt += `------------------------------------------------
+`;
+      const prefix = cfg.billPrefix || 'Bill #';
+      txt += `${prefix}${String(data.billNo).padStart(2, '0')}`;
+      if (cfg.showDateTime !== false) txt += `                    ${dateStr}`;
+      txt += `
+`;
+      if (cfg.showCustomerName !== false && data.customerName) txt += `Customer: ${data.customerName}
+`;
+      txt += `------------------------------------------------
+`;
+
+      if (cfg.showRateCol) {
+        txt += `SR  ITEM                   QTY   RATE     TOTAL
+`;
+      } else {
+        txt += `SR  ITEM                        QTY       TOTAL
+`;
+      }
+      txt += `------------------------------------------------
+`;
+
+      let totalQty = 0;
+      let grandTotal = 0;
+
+      data.items.forEach((it, idx) => {
+        totalQty += it.qty;
+        grandTotal += it.total;
+        let srStr = String(idx + 1).padEnd(4);
+        let nameStr = (it.name.length > 20 ? it.name.substring(0, 19) + '…' : it.name).padEnd(21);
+        let qtyStr = String(it.qty).padStart(4);
+        let rateStr = String(it.rate).padStart(7);
+        let totStr = String(it.total).padStart(10);
+        txt += `${srStr}${nameStr}${qtyStr}${rateStr}${totStr}
+`;
+      });
+
+      txt += `------------------------------------------------
+`;
+      txt += `Total Items: ${data.items.length} (Qty: ${totalQty})         Total: ${grandTotal}
+`;
+      txt += `------------------------------------------------
+`;
+      txt += `              GRAND TOTAL: ${grandTotal}
+`;
+      if (cfg.showPaymentMode !== false) txt += `             Payment Mode: ${data.paymentMode || 'Cash'}
+`;
+      txt += `
+
+
+
+`; // Feed lines so paper clears the cutter blade
+      return txt;
+    }
+
+    /* ==========================================================================
+       HIGH-QUALITY THERMAL JPEG GENERATOR (EXACT RECEIPT SIZE & HIGH CONTRAST)
+       ========================================================================== */
+    function generateReceiptJpegBlob(targetBill) {
+      return new Promise((resolve) => {
+        const canvas = document.getElementById('exportCanvas');
+        const ctx = canvas.getContext('2d');
+        const cfg = receiptConfig;
+        const bill = targetBill || currentViewingBill || (activeBill.items.length > 0 ? activeBill : (savedBills[0] || null));
+        if (!bill) return resolve(null);
+
+        // 2x Retina scale for crisp, dark, bold thermal print reproduction
+        const scale = 2;
+        const baseWidth = cfg.paperWidth === '58mm' ? 420 : 576;
+        const itemsCount = bill.items.length;
+        const baseHeight = 440 + (itemsCount * 34);
+
+        canvas.width = baseWidth * scale;
+        canvas.height = baseHeight * scale;
+        ctx.setTransform(scale, 0, 0, scale, 0, 0);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, baseWidth, baseHeight);
+
+        ctx.fillStyle = '#000000';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 1.5;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+
+        const fontMono = '"JetBrains Mono", "Courier New", Courier, monospace';
+        let y = 42;
+
+        ctx.font = `bold 28px ${fontMono}`;
+        ctx.fillText(cfg.storeName || storeSettings.storeName, baseWidth / 2, y);
+
+        if (cfg.showAddress && cfg.address) {
+          y += 24;
+          ctx.font = `bold 15px ${fontMono}`;
+          ctx.fillText(cfg.address, baseWidth / 2, y);
+        }
+
+        if (cfg.showPhone && cfg.phone) {
+          y += 22;
+          ctx.font = `bold 15px ${fontMono}`;
+          ctx.fillText(`Ph: ${cfg.phone}`, baseWidth / 2, y);
+        }
+
+        y += 18;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(20, y);
+        ctx.lineTo(baseWidth - 20, y);
+        ctx.stroke();
+
+        y += 26;
+        ctx.textAlign = 'left';
+        ctx.font = `bold 16px ${fontMono}`;
+        const prefix = cfg.billPrefix || 'Bill #';
+        ctx.fillText(`${prefix}${String(bill.billNo).padStart(2, '0')}`, 25, y);
+
+        if (cfg.showDateTime !== false) {
+          const d = bill.date ? new Date(bill.date) : new Date();
+          ctx.textAlign = 'right';
+          ctx.font = `bold 15px ${fontMono}`;
+          ctx.fillText(d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }), baseWidth - 25, y);
+        }
+
+        if (cfg.showCustomerName !== false && bill.customerName) {
+          y += 24;
+          ctx.textAlign = 'left';
+          ctx.font = `bold 15px ${fontMono}`;
+          ctx.fillText(`Cust: ${bill.customerName}`, 25, y);
+        }
+
+        y += 18;
+        ctx.beginPath();
+        ctx.moveTo(20, y);
+        ctx.lineTo(baseWidth - 20, y);
+        ctx.stroke();
+
+        y += 22;
+        ctx.font = `bold 15px ${fontMono}`;
+        ctx.textAlign = 'left'; ctx.fillText('SR', 25, y); ctx.fillText('ITEM', 65, y);
+        ctx.textAlign = 'center'; ctx.fillText('QTY', baseWidth - 180, y);
+        ctx.textAlign = 'right'; ctx.fillText('RATE', baseWidth - 95, y); ctx.fillText('TOT', baseWidth - 25, y);
+
+        y += 10;
+        ctx.beginPath();
+        ctx.moveTo(20, y);
+        ctx.lineTo(baseWidth - 20, y);
+        ctx.stroke();
+
+        ctx.font = `bold 15px ${fontMono}`;
+        let totalQty = 0;
+        let grandTotal = 0;
+
+        bill.items.forEach((it, idx) => {
+          y += 26;
+          totalQty += it.qty;
+          grandTotal += it.total;
+          let name = it.name.length > 20 ? it.name.substring(0, 19) + '…' : it.name;
+
+          ctx.textAlign = 'left'; ctx.fillText(String(idx + 1), 25, y); ctx.fillText(name, 65, y);
+          ctx.textAlign = 'center'; ctx.fillText(String(it.qty), baseWidth - 180, y);
+          ctx.textAlign = 'right'; ctx.fillText(`${it.rate}`, baseWidth - 95, y); ctx.fillText(`${it.total}`, baseWidth - 25, y);
+        });
+
+        y += 18;
+        ctx.beginPath();
+        ctx.moveTo(20, y);
+        ctx.lineTo(baseWidth - 20, y);
+        ctx.stroke();
+
+        y += 24;
+        ctx.textAlign = 'left';
+        ctx.font = `bold 16px ${fontMono}`;
+        ctx.fillText(`Total Items: ${bill.items.length} (Qty: ${totalQty})`, 25, y);
+        ctx.textAlign = 'right';
+        ctx.fillText(`${grandTotal}`, baseWidth - 25, y);
+
+        y += 12;
+        ctx.beginPath();
+        ctx.moveTo(20, y);
+        ctx.lineTo(baseWidth - 20, y);
+        ctx.stroke();
+
+        y += 34;
+        ctx.textAlign = 'center';
+        ctx.font = `bold 24px ${fontMono}`;
+        ctx.fillText(`GRAND TOTAL : ${grandTotal}`, baseWidth / 2, y);
+
+        if (cfg.showPaymentMode !== false) {
+          y += 22;
+          ctx.font = `bold 14px ${fontMono}`;
+          ctx.fillText(`Payment Mode: ${bill.paymentMode || 'Cash'}`, baseWidth / 2, y);
+        }
+
+        canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.98);
+      });
+    }
+
+    function saveReceiptAsJpeg(customBill) {
+      generateReceiptJpegBlob(customBill).then((blob) => {
+        if (!blob) return;
+        const bill = customBill || currentViewingBill || activeBill;
+        const link = document.createElement('a');
+        const prefix = receiptConfig.billPrefix || 'Bill_';
+        link.download = `AddisJeans_${prefix}${bill.billNo}.jpg`;
+        link.href = URL.createObjectURL(blob);
+        link.click();
+      });
+    }
+
+    /* ==========================================================================
+       WHATSAPP HIGH-QUALITY JPEG SHARING
+       ========================================================================== */
+    async function shareToWhatsApp(customBill) {
+      playClickSound();
+      const bill = customBill || currentViewingBill || (activeBill.items.length > 0 ? activeBill : (savedBills[0] || null));
+      if (!bill) {
+        alert('No bill available to share.');
+        return;
+      }
+      try {
+        const imageBlob = await generateReceiptJpegBlob(bill);
+        const fileName = `AddisJeans_Bill_${bill.billNo}.jpg`;
+        const file = new File([imageBlob], fileName, { type: 'image/jpeg' });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: `Bill #${bill.billNo} - Addis Jeans`,
+            text: `Receipt Bill #${bill.billNo} - Total: ${bill.grandTotal}`,
+            files: [file]
+          });
+          closeShareModal();
+        } else {
+          saveReceiptAsJpeg(bill);
+          const txt = generatePlainTextReceipt(bill);
+          window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(txt)}`, '_blank');
+          closeShareModal();
+        }
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          saveReceiptAsJpeg(bill);
+        }
+      }
+    }
+
+    async function triggerSystemShare(customBill) {
+      const bill = customBill || currentViewingBill || activeBill;
+      try {
+        const imageBlob = await generateReceiptJpegBlob(bill);
+        const file = new File([imageBlob], `AddisJeans_Bill_${bill.billNo}.jpg`, { type: 'image/jpeg' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: `Bill #${bill.billNo} - Addis Jeans`,
+            files: [file]
+          });
+          closeShareModal();
+        } else {
+          saveReceiptAsJpeg(bill);
+        }
+      } catch (e) {}
+    }
+
+    function shareCurrentBill(customBill) {
+      currentViewingBill = customBill || (activeBill.items.length > 0 ? activeBill : (savedBills[0] || null));
+      if (!currentViewingBill || currentViewingBill.items.length === 0) {
+        alert('No active or saved bill to share.');
+        return;
+      }
+      populateReceiptModalContent(currentViewingBill);
+      document.getElementById('shareModal').classList.remove('hidden');
+    }
+
+    function closeShareModal() {
+      document.getElementById('shareModal').classList.add('hidden');
+    }
+
+    function copyBillTextToClipboard(customBill) {
+      const billText = generatePlainTextReceipt(customBill);
+      navigator.clipboard.writeText(billText).then(() => {
+        alert('Bill text copied to clipboard!');
+        closeShareModal();
+      });
+    }
+
+    /* ==========================================================================
+       ONE-TOUCH BLUETOOTH THERMAL PRINT ENGINE (WITH AUTO-CUT)
+       ========================================================================== */
+    function openBtModal() {
+      document.getElementById('btModal').classList.remove('hidden');
+    }
+    function closeBtModal() {
+      document.getElementById('btModal').classList.add('hidden');
+    }
+
+    async function pairWebBluetooth() {
+      const dot = document.getElementById('btStatusDot');
+      const txt = document.getElementById('btStatusText');
+      const dev = document.getElementById('btDeviceNameText');
+
+      try {
+        if (!navigator.bluetooth) {
+          alert('Web Bluetooth is supported in Chrome on Android over HTTPS.');
+          return;
+        }
+
+        txt.innerText = 'Searching...';
+        bluetoothDevice = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: [
+            '000018f0-0000-1000-8000-00805f9b34fb',
+            '0000ffe0-0000-1000-8000-00805f9b34fb',
+            '49535343-fe7d-4ae5-8fa9-9fafd205e455'
+          ]
+        });
+
+        txt.innerText = 'Connecting...';
+        const server = await bluetoothDevice.gatt.connect();
+        const services = await server.getPrimaryServices();
+
+        for (let svc of services) {
+          const chars = await svc.getCharacteristics();
+          for (let c of chars) {
+            if (c.properties.write || c.properties.writeWithoutResponse) {
+              bluetoothCharacteristic = c;
+              break;
+            }
+          }
+          if (bluetoothCharacteristic) break;
+        }
+
+        if (bluetoothCharacteristic) {
+          dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500';
+          txt.innerText = 'Connected';
+          dev.innerText = bluetoothDevice.name || 'Bluetooth Thermal Printer';
+          document.getElementById('actionBtIcon').className = 'fa-brands fa-bluetooth text-emerald-400';
+          alert(`Connected to ${bluetoothDevice.name || 'Printer'}!`);
+          closeBtModal();
+        } else {
+          throw new Error('No writable ESC/POS characteristic found.');
+        }
+      } catch (err) {
+        console.error(err);
+        dot.className = 'w-2.5 h-2.5 rounded-full bg-red-500';
+        txt.innerText = 'Disconnected';
+        dev.innerText = 'Connection cancelled or failed';
+      }
+    }
+
+    async function printViaWebBluetooth(customBill) {
+      if (!bluetoothCharacteristic) {
+        await pairWebBluetooth();
+        if (!bluetoothCharacteristic) return;
+      }
+
+      try {
+        const bill = customBill || currentViewingBill || activeBill;
+        const textData = generatePlainTextReceipt(bill);
+        const encoder = new TextEncoder();
+        const textBytes = encoder.encode(textData);
+
+        // ESC @ (Init) + Text + ESC d 4 (Feed) + GS V 66 0 (Auto-Cut)
+        const initCmd = new Uint8Array([0x1B, 0x40]);
+        const cutCmd = new Uint8Array([0x1B, 0x64, 0x04, 0x1D, 0x56, 0x42, 0x00]);
+
+        const fullPayload = new Uint8Array(initCmd.length + textBytes.length + cutCmd.length);
+        fullPayload.set(initCmd, 0);
+        fullPayload.set(textBytes, initCmd.length);
+        fullPayload.set(cutCmd, initCmd.length + textBytes.length);
+
+        for (let i = 0; i < fullPayload.length; i += 80) {
+          const chunk = fullPayload.slice(i, i + 80);
+          await bluetoothCharacteristic.writeValue(chunk);
+          await new Promise(r => setTimeout(r, 20));
+        }
+
+        alert('Bill printed and auto-cut successfully!');
+      } catch (e) {
+        console.error(e);
+        alert('Bluetooth transmission failed. Reconnecting...');
+        bluetoothCharacteristic = null;
+        pairWebBluetooth();
+      }
+    }
+
+    function handleQuickBtPrint(customBill) {
+      playClickSound();
+      const bill = customBill || currentViewingBill || activeBill;
+      if (bill.items.length === 0) {
+        alert('Please add items to bill before printing.');
+        return;
+      }
+      printViaWebBluetooth(bill);
+    }
+
+    function testPrintBluetooth() {
+      if (!bluetoothCharacteristic) {
+        alert('Please connect a Bluetooth printer first.');
+        return;
+      }
+      printViaWebBluetooth();
+    }
+
+    /* ==========================================================================
+       DAILY SALES REPORT (VIEW BILL ENABLED)
+       ========================================================================== */
+    function openReportsModal() {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('reportDateInput').value = today;
+      renderDailyReport();
+      document.getElementById('reportsModal').classList.remove('hidden');
+    }
+
+    function closeReportsModal() {
+      document.getElementById('reportsModal').classList.add('hidden');
+    }
+
+    function viewReportBill(billId) {
+      const bill = savedBills.find(b => b.id === billId);
+      if (!bill) return;
+      openReceiptModal(bill);
+    }
+
+    function renderDailyReport() {
+      const selectedDate = document.getElementById('reportDateInput').value;
+      const listContainer = document.getElementById('reportBillsList');
+      listContainer.innerHTML = '';
+
+      const filteredBills = savedBills.filter(bill => {
+        if (!bill.date) return false;
+        return bill.date.split('T')[0] === selectedDate;
+      });
+
+      let totalBills = filteredBills.length;
+      let totalQty = 0;
+      let totalAmount = 0;
+
+      filteredBills.forEach(b => {
+        totalQty += b.totalQty || b.items.reduce((sum, it) => sum + it.qty, 0);
+        totalAmount += b.grandTotal || b.items.reduce((sum, it) => sum + it.total, 0);
+      });
+
+      document.getElementById('kpiTotalBills').innerText = totalBills;
+      document.getElementById('kpiTotalQty').innerText = totalQty;
+      document.getElementById('kpiTotalAmount').innerText = `${totalAmount}`;
+
+      if (filteredBills.length === 0) {
+        listContainer.innerHTML = `
+          <div class="p-6 text-center text-gray-500 text-xs">
+            <i class="fa-solid fa-receipt text-2xl mb-2 text-gray-600"></i>
+            <p>No bills found for ${selectedDate}</p>
+          </div>
+        `;
+        return;
+      }
+
+      const prefix = receiptConfig.billPrefix || 'Bill #';
+
+      filteredBills.forEach(bill => {
+        const d = new Date(bill.date);
+        const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        const bQty = bill.totalQty || bill.items.reduce((sum, it) => sum + it.qty, 0);
+        const bTotal = bill.grandTotal || bill.items.reduce((sum, it) => sum + it.total, 0);
+
+        const card = document.createElement('div');
+        card.className = 'bg-[#18181b] p-3 rounded-xl border border-gray-800 hover:border-gray-600 transition space-y-2 text-xs cursor-pointer';
+        card.onclick = (e) => {
+          if (!e.target.closest('button')) viewReportBill(bill.id);
+        };
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="font-extrabold text-amber-400 font-mono-num">${prefix}${String(bill.billNo).padStart(2, '0')}</span>
+              <span class="text-gray-400 ml-2 text-[11px]">${timeStr}</span>
+              ${bill.customerName ? `<span class="text-gray-300 ml-2 font-medium">• ${bill.customerName}</span>` : ''}
+            </div>
+            <span class="font-bold text-white font-mono-num text-sm">${bTotal}</span>
+          </div>
+
+          <div class="text-[11px] text-gray-400 flex justify-between">
+            <span>Items: ${bill.items.length} | Qty: ${bQty}</span>
+            <span class="text-gray-400">${bill.paymentMode || 'Cash'}</span>
+          </div>
+
+          <div class="pt-2 border-t border-gray-800/80 grid grid-cols-5 gap-1.5 font-bold text-[10px]">
+            <!-- VIEW BILL BUTTON -->
+            <button onclick="event.stopPropagation(); viewReportBill('${bill.id}')" class="py-1.5 rounded-lg bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 flex items-center justify-center gap-1 shadow" title="View Full Receipt">
+              <i class="fa-solid fa-eye"></i>
+              <span>View</span>
+            </button>
+            <!-- 1-TOUCH BLUETOOTH PRINT -->
+            <button onclick="event.stopPropagation(); printViaWebBluetooth(savedBills.find(b => b.id === '${bill.id}'))" class="py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-500 flex items-center justify-center gap-1 shadow" title="Print with Auto-Cut">
+              <i class="fa-brands fa-bluetooth-b"></i>
+              <span>Print</span>
+            </button>
+            <!-- WHATSAPP JPEG SHARE -->
+            <button onclick="event.stopPropagation(); shareToWhatsApp(savedBills.find(b => b.id === '${bill.id}'))" class="py-1.5 rounded-lg bg-green-600/20 text-green-400 hover:bg-green-600/30 flex items-center justify-center gap-1 shadow" title="Share JPEG on WhatsApp">
+              <i class="fa-brands fa-whatsapp"></i>
+              <span>Share</span>
+            </button>
+            <!-- EDIT BILL -->
+            <button onclick="event.stopPropagation(); modifySavedBill('${bill.id}')" class="py-1.5 rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 flex items-center justify-center gap-1">
+              <i class="fa-solid fa-pen"></i>
+              <span>Edit</span>
+            </button>
+            <!-- DELETE BILL -->
+            <button onclick="event.stopPropagation(); deleteSavedBill('${bill.id}')" class="py-1.5 rounded-lg bg-red-600/20 text-red-400 hover:bg-red-600/30 flex items-center justify-center gap-1">
+              <i class="fa-solid fa-trash-can"></i>
+              <span>Del</span>
+            </button>
+          </div>
+        `;
+        listContainer.appendChild(card);
+      });
+    }
+
+    function modifySavedBill(billId) {
+      const bill = savedBills.find(b => b.id === billId);
+      if (!bill) return;
+      editingSavedBillId = bill.id;
+      activeBill = JSON.parse(JSON.stringify(bill));
+
+      const prefix = receiptConfig.billPrefix || 'Bill #';
+      document.getElementById('editingBillNumRef').innerText = `${prefix}${String(bill.billNo).padStart(2, '0')}`;
+      document.getElementById('activeEditBadge').classList.remove('hidden');
+      document.getElementById('cancelEditBanner').classList.remove('hidden');
+
+      const saveBtn = document.getElementById('keypadSaveBtn');
+      saveBtn.innerHTML = `<i class="fa-solid fa-floppy-disk text-xs mb-0.5"></i><span>UPDATE</span>`;
+      saveBtn.classList.remove('bg-amber-500');
+      saveBtn.classList.add('bg-emerald-500');
+
+      document.getElementById('displayBillNum').innerText = `${prefix}${String(bill.billNo).padStart(2, '0')}`;
+      document.getElementById('custNameInput').value = bill.customerName || '';
+      document.getElementById('paymentModeSelect').value = bill.paymentMode || 'Cash';
+      closeReportsModal();
+      renderActiveBillUI();
+    }
+
+    function deleteSavedBill(billId) {
+      if (!confirm('Are you sure you want to permanently delete this bill?')) return;
+      savedBills = savedBills.filter(b => b.id !== billId);
+      saveAllToStorage();
+      renderDailyReport();
+    }
+
+    /* ==========================================================================
+       RECEIPT CUSTOMIZATION ENGINE
+       ========================================================================== */
+    function openReceiptCustomizerModal() {
+      document.getElementById('custStoreName').value = receiptConfig.storeName || storeSettings.storeName;
+      document.getElementById('custHeaderFontSize').value = receiptConfig.headerFontSize || 'large';
+      document.getElementById('custPaperWidth').value = receiptConfig.paperWidth || '80mm';
+      document.getElementById('custTagline').value = receiptConfig.tagline || '';
+      document.getElementById('custShowTagline').checked = !!receiptConfig.showTagline;
+      document.getElementById('custAddress').value = receiptConfig.address || storeSettings.address;
+      document.getElementById('custShowAddress').checked = receiptConfig.showAddress !== false;
+      document.getElementById('custPhone').value = receiptConfig.phone || storeSettings.phone;
+      document.getElementById('custShowPhone').checked = receiptConfig.showPhone !== false;
+      document.getElementById('custGstin').value = receiptConfig.gstin || '';
+      document.getElementById('custShowGstin').checked = !!receiptConfig.showGstin;
+
+      updateCustomizerLivePreview();
+      document.getElementById('receiptCustomizerModal').classList.remove('hidden');
+    }
+
+    function closeReceiptCustomizerModal() {
+      document.getElementById('receiptCustomizerModal').classList.add('hidden');
+    }
+
+    function readCustomizerFormValues() {
+      return {
+        ...receiptConfig,
+        storeName: document.getElementById('custStoreName').value.trim() || 'ADDIS JEANS',
+        headerFontSize: document.getElementById('custHeaderFontSize').value,
+        paperWidth: document.getElementById('custPaperWidth').value,
+        tagline: document.getElementById('custTagline').value.trim(),
+        showTagline: document.getElementById('custShowTagline').checked,
+        address: document.getElementById('custAddress').value.trim(),
+        showAddress: document.getElementById('custShowAddress').checked,
+        phone: document.getElementById('custPhone').value.trim(),
+        showPhone: document.getElementById('custShowPhone').checked,
+        gstin: document.getElementById('custGstin').value.trim(),
+        showGstin: document.getElementById('custShowGstin').checked
+      };
+    }
+
+    function updateCustomizerLivePreview() {
+      const cfg = readCustomizerFormValues();
+      const previewBox = document.getElementById('customizerLivePreviewPaper');
+      const rollTag = document.getElementById('previewRollTag');
+
+      rollTag.innerText = cfg.paperWidth;
+      previewBox.style.width = cfg.paperWidth === '58mm' ? '220px' : '280px';
+
+      let titleSizeClass = 'text-base font-black';
+      if (cfg.headerFontSize === 'normal') titleSizeClass = 'text-sm font-bold';
+      if (cfg.headerFontSize === 'xlarge') titleSizeClass = 'text-lg font-black tracking-wide';
+
+      let html = `
+        <div class="text-center mb-1.5">
+          <h2 class="${titleSizeClass} uppercase">${cfg.storeName}</h2>
+          ${cfg.showTagline && cfg.tagline ? `<p class="text-[9px] italic text-gray-700 font-medium">${cfg.tagline}</p>` : ''}
+          ${cfg.showAddress && cfg.address ? `<p class="text-[9px] text-gray-600">${cfg.address}</p>` : ''}
+          ${cfg.showPhone && cfg.phone ? `<p class="text-[9px] text-gray-600">Ph: ${cfg.phone}</p>` : ''}
+          ${cfg.showGstin && cfg.gstin ? `<p class="text-[9px] font-bold text-gray-700 font-mono-num">GSTIN: ${cfg.gstin}</p>` : ''}
+        </div>
+        <div class="border-b border-dashed border-gray-400 my-1"></div>
+        <div class="flex justify-between text-[10px] font-bold">
+          <span>${cfg.billPrefix}01</span>
+          <span>31/10/2026 05:40 PM</span>
+        </div>
+        <div class="border-b border-dashed border-gray-400 my-1"></div>
+        <div class="grid grid-cols-12 font-bold text-[10px] mb-1">
+          <span class="col-span-2">SR</span>
+          <span class="col-span-5 truncate">ITEM</span>
+          <span class="col-span-2 text-center">QTY</span>
+          <span class="col-span-3 text-right">TOTAL</span>
+        </div>
+        <div class="border-b border-dashed border-gray-300 mb-1"></div>
+        <div class="grid grid-cols-12 text-[10px]">
+          <span class="col-span-2">1</span>
+          <span class="col-span-5 truncate">28/32 Poly</span>
+          <span class="col-span-2 text-center">2</span>
+          <span class="col-span-3 text-right">540</span>
+        </div>
+        <div class="border-b border-dashed border-gray-400 my-1.5"></div>
+        <div class="flex justify-between text-[10px] font-bold">
+          <span>Total Items: 1 (Qty: 2)</span>
+          <span>540</span>
+        </div>
+        <div class="border-b border-dashed border-gray-500 my-1"></div>
+        <div class="text-center py-0.5">
+          <div class="text-xs font-black">GRAND TOTAL : 540</div>
+        </div>
+      `;
+      previewBox.innerHTML = html;
+    }
+
+    function saveReceiptCustomization() {
+      const cfg = readCustomizerFormValues();
+      receiptConfig = cfg;
+      storeSettings.storeName = cfg.storeName;
+      if (cfg.address) storeSettings.address = cfg.address;
+      if (cfg.phone) storeSettings.phone = cfg.phone;
+
+      saveAllToStorage();
+      document.getElementById('headerStoreName').innerText = storeSettings.storeName;
+
+      // Immediately refresh the current receipt preview with new customization
+      if (currentViewingBill) {
+        populateReceiptModalContent(currentViewingBill);
+      } else {
+        populateReceiptModalContent(activeBill);
+      }
+
+      closeReceiptCustomizerModal();
+      alert('Receipt layout & customization saved successfully!');
+    }
+
+    function resetReceiptCustomization() {
+      if (confirm('Reset receipt layout to default settings?')) {
+        receiptConfig = {
+          storeName: storeSettings.storeName || 'ADDIS JEANS',
+          headerFontSize: 'large',
+          paperWidth: '80mm',
+          currency: '',
+          billPrefix: 'Bill #',
+          tagline: 'Exclusive Denim & Casuals',
+          showTagline: false,
+          address: 'Gandhi Nagar',
+          showAddress: true,
+          phone: storeSettings.phone || '9811348044',
+          showPhone: true,
+          gstin: '',
+          showGstin: false,
+          showDateTime: true,
+          showCustomerName: true,
+          showSrNo: true,
+          showRateCol: false,
+          showTotalQty: true,
+          showPaymentMode: true,
+          footerNote: 'Thank You! Visit Again 🙏',
+          showFooterNote: true,
+          termsNote: 'Exchange within 7 days with bill.',
+          showTerms: false,
+          upiId: '',
+          showUpiQr: false
+        };
+        openReceiptCustomizerModal();
+      }
+    }
+
+    /* ==========================================================================
+       INVENTORY MANAGEMENT
+       ========================================================================== */
+    function openInventoryModal() {
+      renderInventoryItems();
+      document.getElementById('inventoryModal').classList.remove('hidden');
+    }
+    function closeInventoryModal() {
+      document.getElementById('inventoryModal').classList.add('hidden');
+    }
+
+    function renderInventoryItems() {
+      const container = document.getElementById('inventoryItemsContainer');
+      const search = (document.getElementById('inventorySearchInput').value || '').toLowerCase();
+      container.innerHTML = '';
+
+      const filtered = inventory.filter(it => it.name.toLowerCase().includes(search) || it.category.toLowerCase().includes(search));
+      if (filtered.length === 0) {
+        container.innerHTML = '<div class="text-center text-gray-500 py-6 text-xs">No products found</div>';
+        return;
+      }
+
+      filtered.forEach(it => {
+        const itemRow = document.createElement('div');
+        itemRow.className = 'p-3 bg-[#18181b] rounded-xl border border-gray-800 flex items-center justify-between text-xs';
+        itemRow.innerHTML = `
+          <div>
+            <span class="text-[9px] bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded font-bold">${it.category}</span>
+            <h5 class="text-white font-bold text-sm mt-1">${it.name}</h5>
+            <div class="text-gray-400 text-[11px] mt-0.5">
+              Rate: <span class="text-amber-400 font-bold font-mono-num">${it.rate}</span> | Stock: <span class="font-mono-num text-white">${it.stock || 0}</span>
+            </div>
+          </div>
+          <div class="flex items-center space-x-1.5">
+            <button onclick="editProductCatalogItem('${it.id}')" class="w-8 h-8 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 flex items-center justify-center">
+              <i class="fa-solid fa-pen text-xs"></i>
+            </button>
+            <button onclick="removeProductCatalogItem('${it.id}')" class="w-8 h-8 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-400 flex items-center justify-center">
+              <i class="fa-solid fa-trash-can text-xs"></i>
+            </button>
+          </div>
+        `;
+        container.appendChild(itemRow);
+      });
+    }
+
+    let activeEditingProductId = null;
+    function openAddProductModal() {
+      activeEditingProductId = null;
+      document.getElementById('productEditModalTitle').innerText = 'Add New Product';
+      document.getElementById('prodInputName').value = '';
+      document.getElementById('prodInputRate').value = '';
+      document.getElementById('prodInputStock').value = '50';
+      document.getElementById('prodInputCategory').value = 'JEANS';
+      document.getElementById('productEditModal').classList.remove('hidden');
+    }
+
+    function editProductCatalogItem(id) {
+      const it = inventory.find(i => i.id === id);
+      if (!it) return;
+      activeEditingProductId = it.id;
+      document.getElementById('productEditModalTitle').innerText = 'Edit Product';
+      document.getElementById('prodInputName').value = it.name;
+      document.getElementById('prodInputRate').value = it.rate;
+      document.getElementById('prodInputStock').value = it.stock || 0;
+      document.getElementById('prodInputCategory').value = it.category || 'JEANS';
+      document.getElementById('productEditModal').classList.remove('hidden');
+    }
+
+    function closeProductEditModal() {
+      document.getElementById('productEditModal').classList.add('hidden');
+    }
+
+    function saveProductCatalogItem() {
+      const name = document.getElementById('prodInputName').value.trim();
+      const rate = parseFloat(document.getElementById('prodInputRate').value) || 0;
+      const stock = parseInt(document.getElementById('prodInputStock').value) || 0;
+      const category = (document.getElementById('prodInputCategory').value.trim() || 'JEANS').toUpperCase();
+
+      if (!name || rate <= 0) {
+        alert('Please provide a valid product name and rate.');
+        return;
+      }
+
+      if (activeEditingProductId) {
+        const idx = inventory.findIndex(i => i.id === activeEditingProductId);
+        if (idx >= 0) inventory[idx] = { id: activeEditingProductId, name, rate, stock, category };
+      } else {
+        inventory.push({ id: Date.now().toString(), name, rate, stock, category });
+      }
+
+      saveAllToStorage();
+      renderPresetQuickChips();
+      renderInventoryItems();
+      closeProductEditModal();
+    }
+
+    function removeProductCatalogItem(id) {
+      if (!confirm('Are you sure you want to delete this product?')) return;
+      inventory = inventory.filter(i => i.id !== id);
+      saveAllToStorage();
+      renderPresetQuickChips();
+      renderInventoryItems();
+    }
+
+    function openSettingsModal() {
+      document.getElementById('settingStoreName').value = storeSettings.storeName;
+      document.getElementById('settingStoreAddress').value = storeSettings.address;
+      document.getElementById('settingPhone').value = storeSettings.phone;
+      document.getElementById('settingNextBillNum').value = storeSettings.nextBillNum;
+      document.getElementById('settingAudioClick').checked = storeSettings.audioClick;
+      document.getElementById('settingsModal').classList.remove('hidden');
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('settingsModal').classList.add('hidden');
+    }
+
+    function saveStoreSettings() {
+      storeSettings.storeName = document.getElementById('settingStoreName').value.trim() || 'ADDIS JEANS';
+      storeSettings.address = document.getElementById('settingStoreAddress').value.trim();
+      storeSettings.phone = document.getElementById('settingPhone').value.trim();
+      storeSettings.nextBillNum = parseInt(document.getElementById('settingNextBillNum').value) || 1;
+      storeSettings.audioClick = document.getElementById('settingAudioClick').checked;
+      receiptConfig.storeName = storeSettings.storeName;
+      receiptConfig.address = storeSettings.address;
+      receiptConfig.phone = storeSettings.phone;
+      document.getElementById('headerStoreName').innerText = storeSettings.storeName;
+      saveAllToStorage();
+      closeSettingsModal();
+      alert('Settings saved successfully!');
+    }
+  </script>
+</body>
+</html>
